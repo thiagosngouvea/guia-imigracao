@@ -1,40 +1,149 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# Guia Imigração - SaaS para Imigração aos EUA
 
-## Getting Started
+Uma plataforma completa com inteligência artificial para ajudar brasileiros em todo o processo de imigração para os Estados Unidos.
 
-First, run the development server:
+## 🚀 Funcionalidades
 
+### ✅ Implementadas
+
+- **Landing Page Atrativa**: Página inicial moderna com informações sobre o produto
+- **Sistema de Autenticação**: Páginas de login e cadastro com validação
+- **Questionário Inteligente**: Sistema que recomenda o melhor tipo de visto baseado no perfil do usuário
+- **Informações de Vistos**: Guia completo com detalhes sobre todos os tipos de visto americano
+- **Treino com IA**: Simulador de entrevistas de visto com feedback personalizado
+- **Dashboard**: Painel principal com estatísticas e ações rápidas
+- **Design Responsivo**: Interface otimizada para desktop e mobile
+
+### 🔄 Principais Seções
+
+1. **Questionário de Visto**
+   - 5 perguntas estratégicas
+   - Sistema de pontuação inteligente
+   - Recomendação personalizada de visto
+   - Interface intuitiva com barra de progresso
+
+2. **Treino com IA**
+   - Cenários realistas de entrevista
+   - 3 níveis de dificuldade
+   - Feedback instantâneo
+   - Perguntas baseadas em casos reais
+
+3. **Informações de Vistos**
+   - B1/B2 (Turismo/Negócios)
+   - F1 (Estudante)
+   - H1B (Trabalhador Especializado)
+   - EB-5 (Investidor)
+   - O1 (Habilidade Extraordinária)
+
+4. **Dashboard**
+   - Estatísticas de progresso
+   - Atividades recentes
+   - Próximos passos recomendados
+   - Ações rápidas
+
+## 🛠️ Tecnologias Utilizadas
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS 4
+- **Componentes**: Componentes customizados com Headless UI
+- **Ícones**: Heroicons (via SVG)
+- **Utilitários**: clsx, tailwind-merge
+
+## 📦 Instalação
+
+1. Clone o repositório:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd guia-imigracao
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Instale as dependências:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+3. Execute o servidor de desenvolvimento:
+```bash
+npm run dev
+```
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+4. Abra [http://localhost:3000](http://localhost:3000) no seu navegador.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+## 🎯 Próximos Passos
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Para Produção
+- [ ] Configurar banco de dados (Prisma + PostgreSQL)
+- [ ] Implementar autenticação real (NextAuth.js)
+- [ ] Integrar IA real para entrevistas (OpenAI API)
+- [ ] Sistema de pagamentos (Stripe)
+- [ ] Dashboard de administração
+- [ ] Sistema de notificações
+- [ ] Testes automatizados
 
-## Learn More
+### Melhorias
+- [ ] PWA (Progressive Web App)
+- [ ] Modo escuro
+- [ ] Internacionalização (i18n)
+- [ ] Analytics e métricas
+- [ ] Chat de suporte
+- [ ] Blog/Artigos educativos
 
-To learn more about Next.js, take a look at the following resources:
+## 📁 Estrutura do Projeto
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+```
+src/
+├── components/
+│   ├── ui/           # Componentes base (Button, Input, etc.)
+│   └── layout/       # Componentes de layout (Header, Layout)
+├── pages/            # Páginas da aplicação
+│   ├── index.tsx     # Landing page
+│   ├── login.tsx     # Página de login
+│   ├── cadastro.tsx  # Página de cadastro
+│   ├── questionario.tsx # Questionário de visto
+│   ├── vistos.tsx    # Informações de vistos
+│   ├── treinamento.tsx # Treino com IA
+│   └── dashboard.tsx # Dashboard principal
+├── lib/              # Utilitários e constantes
+└── styles/           # Estilos globais
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🎨 Design System
 
-## Deploy on Vercel
+### Cores Principais
+- **Azul**: #2563eb (Primary)
+- **Verde**: #059669 (Success)
+- **Amarelo**: #d97706 (Warning)
+- **Vermelho**: #dc2626 (Error)
+- **Cinza**: #6b7280 (Neutral)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Componentes
+- **Button**: 4 variantes (primary, secondary, outline, ghost)
+- **Input**: Com label e validação de erro
+- **Layout**: Header responsivo + conteúdo principal
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+## 🚀 Deploy
+
+### Vercel (Recomendado)
+```bash
+npm run build
+npx vercel --prod
+```
+
+### Outras Plataformas
+O projeto é compatível com qualquer plataforma que suporte Next.js:
+- Netlify
+- AWS Amplify
+- Railway
+- Render
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas! Por favor, abra uma issue ou pull request para sugestões e melhorias.
+
+---
+
+**Desenvolvido com ❤️ para ajudar brasileiros a realizarem o sonho americano.**
