@@ -1,120 +1,240 @@
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
 
-// Mock user data - em um app real, isso viria de uma API/banco de dados
-const mockUser = {
-  name: 'João Silva',
-  email: 'joao@email.com',
-  joinDate: '2024-01-15',
-  recommendedVisa: 'H1B',
-  completedQuiz: true,
-  interviewsPracticed: 3,
-  lastActivity: '2024-01-20'
-};
+interface QuickAction {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  href: string;
+  color: 'blue' | 'green' | 'purple';
+  completed: boolean;
+}
 
-const quickActions = [
-  {
-    id: 'questionnaire',
-    title: 'Questionário de Visto',
-    description: 'Descubra qual visto é ideal para você',
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-      </svg>
-    ),
-    href: '/questionario',
-    color: 'blue',
-    completed: mockUser.completedQuiz
-  },
-  {
-    id: 'training',
-    title: 'Treino com IA',
-    description: 'Pratique entrevistas de visto',
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189 6.01 6.01 0 001.5.189 2.25 2.25 0 013.75 1.689 18.64 18.64 0 01-7.499 4.5 18.64 18.64 0 01-7.499-4.5 2.25 2.25 0 013.75-1.689V12.75a6.01 6.01 0 001.5.189z" />
-      </svg>
-    ),
-    href: '/treinamento',
-    color: 'green',
-    completed: mockUser.interviewsPracticed > 0
-  },
-  {
-    id: 'visa-info',
-    title: 'Informações de Vistos',
-    description: 'Guia completo sobre tipos de visto',
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-      </svg>
-    ),
-    href: '/vistos',
-    color: 'purple',
-    completed: false
-  }
-];
+interface RecentActivity {
+  id: number;
+  type: 'quiz' | 'training' | 'info';
+  title: string;
+  description: string;
+  date: string;
+  icon: string;
+}
 
-const recentActivities = [
-  {
-    id: 1,
-    type: 'quiz',
-    title: 'Questionário de Visto Completado',
-    description: 'Visto recomendado: H1B - Trabalhador Especializado',
-    date: '2024-01-20',
-    icon: '✅'
-  },
-  {
-    id: 2,
-    type: 'training',
-    title: 'Treino de Entrevista',
-    description: 'Cenário: H1B - Trabalho (Avançado)',
-    date: '2024-01-19',
-    icon: '🎯'
-  },
-  {
-    id: 3,
-    type: 'info',
-    title: 'Informações Consultadas',
-    description: 'Visto H1B - Trabalhador Especializado',
-    date: '2024-01-18',
-    icon: '📚'
-  }
-];
-
-const upcomingTasks = [
-  {
-    id: 1,
-    title: 'Praticar mais entrevistas',
-    description: 'Recomendamos pelo menos 5 sessões de treino',
-    priority: 'high',
-    action: 'Treinar Agora'
-  },
-  {
-    id: 2,
-    title: 'Revisar documentos necessários',
-    description: 'Confira a lista de documentos para seu visto',
-    priority: 'medium',
-    action: 'Ver Lista'
-  },
-  {
-    id: 3,
-    title: 'Agendar consulta com especialista',
-    description: 'Fale com um advogado de imigração',
-    priority: 'low',
-    action: 'Agendar'
-  }
-];
+interface UpcomingTask {
+  id: number;
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  action: string;
+}
 
 export default function Dashboard() {
+  const { user, userProfile, loading } = useAuth();
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  // Calculate days since user joined
+  const daysSinceJoined = userProfile?.createdAt 
+    ? Math.floor((new Date().getTime() - new Date(userProfile.createdAt.toDate()).getTime()) / (1000 * 3600 * 24))
+    : 0;
+
+  // Calculate progress percentage
+  const calculateProgress = () => {
+    let progress = 0;
+    if (userProfile?.completedQuiz) progress += 30;
+    if (userProfile?.interviewsPracticed && userProfile.interviewsPracticed > 0) progress += 25;
+    if (userProfile?.recommendedVisa) progress += 25;
+    if (userProfile?.interviewsPracticed && userProfile.interviewsPracticed >= 3) progress += 20;
+    return Math.min(progress, 100);
+  };
+
+  const quickActions: QuickAction[] = [
+    {
+      id: 'questionnaire',
+      title: 'Questionário de Visto',
+      description: 'Descubra qual visto é ideal para você',
+      icon: (
+        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+        </svg>
+      ),
+      href: '/questionario',
+      color: 'blue',
+      completed: userProfile?.completedQuiz || false
+    },
+    {
+      id: 'training',
+      title: 'Treino com IA',
+      description: 'Pratique entrevistas de visto',
+      icon: (
+        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189 6.01 6.01 0 001.5.189 2.25 2.25 0 013.75 1.689 18.64 18.64 0 01-7.499 4.5 18.64 18.64 0 01-7.499-4.5 2.25 2.25 0 013.75-1.689V12.75a6.01 6.01 0 001.5.189z" />
+        </svg>
+      ),
+      href: '/treinamento',
+      color: 'green',
+      completed: (userProfile?.interviewsPracticed || 0) > 0
+    },
+    {
+      id: 'visa-info',
+      title: 'Informações de Vistos',
+      description: 'Guia completo sobre tipos de visto',
+      icon: (
+        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+        </svg>
+      ),
+      href: '/vistos',
+      color: 'purple',
+      completed: false
+    }
+  ];
+
+  // Generate recent activities based on user data
+  const generateRecentActivities = (): RecentActivity[] => {
+    const activities: RecentActivity[] = [];
+    
+    if (userProfile?.completedQuiz && userProfile?.recommendedVisa) {
+      activities.push({
+        id: 1,
+        type: 'quiz',
+        title: 'Questionário de Visto Completado',
+        description: `Visto recomendado: ${userProfile.recommendedVisa}`,
+        date: userProfile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        icon: '✅'
+      });
+    }
+
+    if (userProfile?.interviewsPracticed && userProfile.interviewsPracticed > 0) {
+      activities.push({
+        id: 2,
+        type: 'training',
+        title: 'Treino de Entrevista',
+        description: `${userProfile.interviewsPracticed} sessões de treino completadas`,
+        date: userProfile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        icon: '🎯'
+      });
+    }
+
+    if (activities.length === 0) {
+      activities.push({
+        id: 3,
+        type: 'info',
+        title: 'Bem-vindo a MoveEasy!',
+        description: 'Comece preenchendo o questionário para descobrir seu visto ideal',
+        date: userProfile?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        icon: '🎉'
+      });
+    }
+
+    return activities;
+  };
+
+  const generateUpcomingTasks = (): UpcomingTask[] => {
+    const tasks: UpcomingTask[] = [];
+
+    if (!userProfile?.completedQuiz) {
+      tasks.push({
+        id: 1,
+        title: 'Complete o questionário',
+        description: 'Descubra qual visto é ideal para seu perfil',
+        priority: 'high',
+        action: 'Começar Agora'
+      });
+    } else if ((userProfile?.interviewsPracticed || 0) === 0) {
+      // Se completou o quiz mas ainda não praticou, priorizar o treinamento
+      tasks.push({
+        id: 2,
+        title: 'Comece o treinamento de entrevista',
+        description: 'Agora que você descobriu seu visto ideal, pratique para a entrevista',
+        priority: 'high',
+        action: 'Iniciar Treinamento'
+      });
+    }
+
+    if ((userProfile?.interviewsPracticed || 0) > 0 && (userProfile?.interviewsPracticed || 0) < 3) {
+      tasks.push({
+        id: 3,
+        title: 'Continue praticando entrevistas',
+        description: 'Recomendamos pelo menos 3 sessões de treino',
+        priority: 'high',
+        action: 'Continuar Treino'
+      });
+    }
+
+    if (userProfile?.recommendedVisa) {
+      tasks.push({
+        id: 4,
+        title: 'Revisar documentos necessários',
+        description: `Confira a lista de documentos para o visto ${userProfile.recommendedVisa}`,
+        priority: 'medium',
+        action: 'Ver Lista'
+      });
+    }
+
+    if (tasks.length < 3) {
+      tasks.push({
+        id: 5,
+        title: 'Agendar consulta com especialista',
+        description: 'Fale com um advogado de imigração',
+        priority: 'low',
+        action: 'Agendar'
+      });
+    }
+
+    return tasks.slice(0, 3);
+  };
+
+  // Show loading state
+  if (loading || !isClient) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Carregando seu dashboard...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Redirect if not authenticated (this shouldn't happen due to useEffect above)
+  if (!user) {
+    return null;
+  }
+
+  const recentActivities = generateRecentActivities();
+  const upcomingTasks = generateUpcomingTasks();
+  const progress = calculateProgress();
+
   return (
-    <Layout isAuthenticated={true} user={mockUser}>
+    <Layout>
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Welcome Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">
-              Bem-vindo, {mockUser.name}! 👋
+              Bem-vindo, {userProfile?.name || user.displayName || 'Usuário'}! 👋
             </h1>
             <p className="text-gray-600 mt-2">
               Aqui está um resumo do seu progresso na jornada para os EUA.
@@ -132,7 +252,9 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Visto Recomendado</p>
-                  <p className="text-2xl font-bold text-gray-900">{mockUser.recommendedVisa}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {userProfile?.recommendedVisa || 'Pendente'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -146,7 +268,9 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Treinos Realizados</p>
-                  <p className="text-2xl font-bold text-gray-900">{mockUser.interviewsPracticed}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {userProfile?.interviewsPracticed || 0}
+                  </p>
                 </div>
               </div>
             </div>
@@ -160,9 +284,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Dias na Plataforma</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {Math.floor((new Date().getTime() - new Date(mockUser.joinDate).getTime()) / (1000 * 3600 * 24))}
-                  </p>
+                  <p className="text-2xl font-bold text-gray-900">{daysSinceJoined}</p>
                 </div>
               </div>
             </div>
@@ -176,7 +298,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Progresso</p>
-                  <p className="text-2xl font-bold text-gray-900">75%</p>
+                  <p className="text-2xl font-bold text-gray-900">{progress}%</p>
                 </div>
               </div>
             </div>
@@ -189,7 +311,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 {quickActions.map((action) => (
                   <Link key={action.id} href={action.href}>
-                    <div className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 cursor-pointer border-l-4 ${
+                    <div className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 cursor-pointer border-l-4 h-40 flex flex-col ${
                       action.color === 'blue' ? 'border-blue-500' :
                       action.color === 'green' ? 'border-green-500' :
                       'border-purple-500'
@@ -210,8 +332,10 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
-                      <p className="text-sm text-gray-600">{action.description}</p>
+                      <div className="flex-1 flex flex-col">
+                        <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
+                        <p className="text-sm text-gray-600 flex-1">{action.description}</p>
+                      </div>
                     </div>
                   </Link>
                 ))}
@@ -245,12 +369,26 @@ export default function Dashboard() {
               <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow text-white p-6">
                 <h3 className="font-bold text-lg mb-2">Seu Visto Recomendado</h3>
                 <div className="bg-white/20 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-xl">{mockUser.recommendedVisa}</h4>
-                  <p className="text-blue-100 text-sm">Trabalhador Especializado</p>
+                  <h4 className="font-semibold text-xl">
+                    {userProfile?.recommendedVisa || 'Complete o questionário'}
+                  </h4>
+                  <p className="text-blue-100 text-sm">
+                    {userProfile?.recommendedVisa 
+                      ? 'Baseado no seu perfil' 
+                      : 'Para descobrir seu visto ideal'
+                    }
+                  </p>
                 </div>
-                <Link href="/vistos">
+                <Link href={
+                  userProfile?.recommendedVisa 
+                    ? (userProfile?.interviewsPracticed === 0 ? '/treinamento' : '/vistos')
+                    : '/questionario'
+                }>
                   <Button variant="secondary" size="sm" className="w-full">
-                    Ver Detalhes
+                    {userProfile?.recommendedVisa 
+                      ? (userProfile?.interviewsPracticed === 0 ? 'Começar Treinamento' : 'Ver Detalhes')
+                      : 'Fazer Questionário'
+                    }
                   </Button>
                 </Link>
               </div>
@@ -273,7 +411,16 @@ export default function Dashboard() {
                             'bg-green-500'
                           }`}></span>
                         </div>
-                        <Button variant="ghost" size="sm" className="mt-2 text-xs">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="mt-2 text-xs"
+                          onClick={() => {
+                            if (task.id === 1) router.push('/questionario');
+                            else if (task.id === 2 || task.id === 3) router.push('/treinamento');
+                            else if (task.id === 4) router.push('/vistos');
+                          }}
+                        >
                           {task.action}
                         </Button>
                       </div>

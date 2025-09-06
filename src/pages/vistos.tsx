@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
 
 interface VisaType {
   id: string;
@@ -206,12 +208,40 @@ const visaTypes: VisaType[] = [
 const categories = ['Todos', 'Não-Imigrante', 'Imigrante'];
 
 export default function Vistos() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
 
   const filteredVisas = selectedCategory === 'Todos' 
     ? visaTypes 
     : visaTypes.filter(visa => visa.category === selectedCategory);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando informações de vistos...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Redirect if not authenticated (this shouldn't happen due to useEffect above)
+  if (!user) {
+    return null;
+  }
 
   if (selectedVisa) {
     return (

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
 
 interface Message {
   id: string;
@@ -73,12 +75,21 @@ const scenarios: InterviewScenario[] = [
 ];
 
 export default function Treinamento() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [selectedScenario, setSelectedScenario] = useState<InterviewScenario | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewStarted, setInterviewStarted] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
 
   const startInterview = (scenario: InterviewScenario) => {
     setSelectedScenario(scenario);
@@ -155,6 +166,25 @@ export default function Treinamento() {
     setCurrentQuestionIndex(0);
     setInterviewStarted(false);
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando treino de entrevista...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Redirect if not authenticated (this shouldn't happen due to useEffect above)
+  if (!user) {
+    return null;
+  }
 
   if (selectedScenario && interviewStarted) {
     return (

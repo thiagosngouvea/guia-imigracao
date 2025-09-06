@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
+import { updateUserProfile } from '../lib/auth';
 
 interface Question {
   id: string;
@@ -184,10 +187,33 @@ const visaInfo = {
 };
 
 export default function Questionario() {
+  const { user, userProfile, loading, refreshUserProfile } = useAuth();
+  const router = useRouter();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showResult, setShowResult] = useState(false);
   const [recommendedVisa, setRecommendedVisa] = useState<string>('');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  // Load existing quiz answers if available
+  useEffect(() => {
+    if (userProfile?.quizAnswers && Object.keys(answers).length === 0) {
+      setAnswers(userProfile.quizAnswers);
+    }
+    if (userProfile?.recommendedVisa && !recommendedVisa) {
+      setRecommendedVisa(userProfile.recommendedVisa);
+    }
+    // If user already completed the quiz, show the result by default
+    if (userProfile?.completedQuiz && userProfile?.recommendedVisa && !showResult) {
+      setShowResult(true);
+    }
+  }, [userProfile, answers, recommendedVisa, showResult]);
 
   const handleAnswer = (questionId: string, answer: string) => {
     setAnswers(prev => ({
@@ -210,7 +236,7 @@ export default function Questionario() {
     }
   };
 
-  const calculateResult = () => {
+  const calculateResult = async () => {
     const scores: Record<string, number> = {
       'B1/B2': 0,
       'F1': 0,
@@ -237,6 +263,22 @@ export default function Questionario() {
       scores[a[0]] > scores[b[0]] ? a : b
     )[0];
 
+    // Salvar resultado no perfil do usuário
+    if (user) {
+      try {
+        await updateUserProfile(user.uid, {
+          recommendedVisa: recommended,
+          completedQuiz: true,
+          quizAnswers: answers,
+          quizScores: scores,
+        });
+        // Atualizar o perfil local
+        await refreshUserProfile();
+      } catch (error) {
+        console.error('Erro ao salvar resultado do questionário:', error);
+      }
+    }
+
     setRecommendedVisa(recommended);
     setShowResult(true);
   };
@@ -247,6 +289,25 @@ export default function Questionario() {
     setShowResult(false);
     setRecommendedVisa('');
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando questionário...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Redirect if not authenticated (this shouldn't happen due to useEffect above)
+  if (!user) {
+    return null;
+  }
 
   if (showResult) {
     const visa = visaInfo[recommendedVisa as keyof typeof visaInfo];
@@ -308,8 +369,8 @@ export default function Questionario() {
                 <Button onClick={resetQuiz} variant="outline">
                   Refazer Questionário
                 </Button>
-                <Button>
-                  Criar Conta para Mais Informações
+                <Button onClick={() => router.push('/treinamento')}>
+                  Começar Treinamento
                 </Button>
               </div>
             </div>

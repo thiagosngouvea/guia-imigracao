@@ -10,26 +10,44 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
+            <Link href={user ? "/dashboard" : "/"} className="flex items-center space-x-2">
               <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">US</span>
               </div>
               <span className="text-xl font-bold text-gray-900">
-                Guia Imigração
+                MoveEasy
               </span>
             </Link>
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/vistos" className="text-gray-600 hover:text-gray-900">
-              Tipos de Visto
-            </Link>
-            <Link href="/questionario" className="text-gray-600 hover:text-gray-900">
-              Questionário
-            </Link>
-            <Link href="/treinamento" className="text-gray-600 hover:text-gray-900">
-              Treino AI
-            </Link>
+            {user ? (
+              // Navigation for authenticated users
+              <>
+                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
+                  Dashboard
+                </Link>
+                <Link href="/questionario" className="text-gray-600 hover:text-gray-900">
+                  Questionário
+                </Link>
+                <Link href="/treinamento" className="text-gray-600 hover:text-gray-900">
+                  Treino AI
+                </Link>
+                <Link href="/vistos" className="text-gray-600 hover:text-gray-900">
+                  Tipos de Visto
+                </Link>
+              </>
+            ) : (
+              // Navigation for non-authenticated users
+              <>
+                <Link href="/#features" className="text-gray-600 hover:text-gray-900">
+                  Funcionalidades
+                </Link>
+                <Link href="/#benefits" className="text-gray-600 hover:text-gray-900">
+                  Vantagens
+                </Link>
+              </>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -50,7 +68,7 @@ export function Header() {
             ) : (
               <div className="flex items-center space-x-2">
                 <Link href="/login">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="outline" size="sm">
                     Entrar
                   </Button>
                 </Link>

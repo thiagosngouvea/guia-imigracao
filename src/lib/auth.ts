@@ -25,6 +25,8 @@ import {
     completedQuiz?: boolean;
     interviewsPracticed?: number;
     photoURL?: string;
+    quizAnswers?: Record<string, string>;
+    quizScores?: Record<string, number>;
   }
   
   export interface AuthError {
@@ -145,7 +147,7 @@ import {
   export const logout = async (): Promise<void> => {
     try {
       await signOut(auth);
-    } catch (error: any) {
+    } catch {
       throw new Error('Erro ao fazer logout');
     }
   };
