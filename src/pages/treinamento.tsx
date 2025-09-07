@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { SubscriptionGuard } from '../components/SubscriptionGuard';
 
 interface Message {
   id: string;
@@ -634,8 +635,9 @@ export default function Treinamento() {
 
   if (selectedScenario && interviewStarted) {
     return (
-      <Layout>
-        <div className="min-h-screen bg-gray-50 py-8">
+      <SubscriptionGuard>
+        <Layout>
+          <div className="min-h-screen bg-gray-50 py-8">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
             {/* Header */}
             <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -856,12 +858,14 @@ export default function Treinamento() {
           </div>
         </div>
       </Layout>
+      </SubscriptionGuard>
     );
   }
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 py-12">
+    <SubscriptionGuard>
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-12">
@@ -1048,5 +1052,6 @@ export default function Treinamento() {
         </div>
       </div>
     </Layout>
+    </SubscriptionGuard>
   );
 }

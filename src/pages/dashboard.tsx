@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { SubscriptionGuard } from '../components/SubscriptionGuard';
 
 interface QuickAction {
   id: string;
@@ -251,8 +252,9 @@ export default function Dashboard() {
   const currentVisa = getCurrentVisa();
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 py-8">
+    <SubscriptionGuard>
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Welcome Header */}
           <div className="mb-8">
@@ -492,5 +494,6 @@ export default function Dashboard() {
         </div>
       </div>
     </Layout>
+    </SubscriptionGuard>
   );
 }

@@ -4,6 +4,7 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { updateUserProfile } from '../lib/auth';
+import { SubscriptionGuard } from '../components/SubscriptionGuard';
 
 interface Question {
   id: string;
@@ -313,10 +314,11 @@ export default function Questionario() {
     const visa = visaInfo[recommendedVisa as keyof typeof visaInfo];
     
     return (
-      <Layout>
-        <div className="min-h-screen bg-gray-50 py-12">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-lg shadow-lg p-8">
+      <SubscriptionGuard>
+        <Layout>
+          <div className="min-h-screen bg-gray-50 py-12">
+            <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+              <div className="bg-white rounded-lg shadow-lg p-8">
               <div className="text-center mb-8">
                 <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
                   <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -377,6 +379,7 @@ export default function Questionario() {
           </div>
         </div>
       </Layout>
+      </SubscriptionGuard>
     );
   }
 
@@ -384,8 +387,9 @@ export default function Questionario() {
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 py-12">
+    <SubscriptionGuard>
+      <Layout>
+        <div className="min-h-screen bg-gray-50 py-12">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-lg p-8">
             {/* Progress Bar */}
@@ -455,5 +459,6 @@ export default function Questionario() {
         </div>
       </div>
     </Layout>
+    </SubscriptionGuard>
   );
 }

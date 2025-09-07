@@ -14,21 +14,28 @@ import {
   import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
   import { auth, db } from './firebase';
   
-  // Types
-  export interface UserProfile {
-    uid: string;
-    email: string;
-    name: string;
-    createdAt: any;
-    lastLoginAt: any;
-    recommendedVisa?: string;
-    selectedVisa?: string; // Novo campo para o visto escolhido pelo usuário
-    completedQuiz?: boolean;
-    interviewsPracticed?: number;
-    photoURL?: string;
-    quizAnswers?: Record<string, string>;
-    quizScores?: Record<string, number>;
-  }
+// Types
+export interface UserProfile {
+  uid: string;
+  email: string;
+  name: string;
+  createdAt: any;
+  lastLoginAt: any;
+  recommendedVisa?: string;
+  selectedVisa?: string; // Novo campo para o visto escolhido pelo usuário
+  completedQuiz?: boolean;
+  interviewsPracticed?: number;
+  photoURL?: string;
+  quizAnswers?: Record<string, string>;
+  quizScores?: Record<string, number>;
+  // Subscription fields
+  isAdmin?: boolean;
+  stripeCustomerId?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing';
+  subscriptionEndDate?: any;
+  planType?: 'monthly' | 'yearly';
+}
   
   export interface AuthError {
     code: string;

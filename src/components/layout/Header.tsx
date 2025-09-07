@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
+import { useSubscription } from '../../hooks/useSubscription';
 
 export function Header() {
   const { user, userProfile, logout } = useAuth();
+  const { hasActiveSubscription, isAdmin, subscriptionStatus } = useSubscription();
 
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -36,6 +38,11 @@ export function Header() {
                 <Link href="/vistos" className="text-gray-600 hover:text-gray-900">
                   Tipos de Visto
                 </Link>
+                {!isAdmin && (
+                  <Link href="/subscription" className="text-gray-600 hover:text-gray-900">
+                    Assinatura
+                  </Link>
+                )}
               </>
             ) : (
               // Navigation for non-authenticated users
@@ -53,8 +60,26 @@ export function Header() {
           <div className="flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-4">
+                {/* Subscription Status Badge */}
+                {!isAdmin && (
+                  <div className="flex items-center space-x-2">
+                    {hasActiveSubscription ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        ✓ Ativo
+                      </span>
+                    ) : (
+                      <Link href="/subscription">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer">
+                          ⚠ Assinar
+                        </span>
+                      </Link>
+                    )}
+                  </div>
+                )}
+                
                 <span className="text-sm text-gray-700">
                   Olá, {userProfile?.name || user.displayName || 'Usuário'}
+                  {isAdmin && <span className="ml-1 text-blue-600 font-medium">(Admin)</span>}
                 </span>
                 <Link href="/dashboard">
                   <Button variant="primary" size="sm">
