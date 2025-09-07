@@ -210,6 +210,18 @@ export default function Dashboard() {
     return userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
   };
 
+  // Função para mapear nome do visto para ID usado na URL
+  const getVisaId = (visaName: string) => {
+    const visaMapping: Record<string, string> = {
+      'B1/B2': 'b1b2',
+      'F1': 'f1',
+      'H1B': 'h1b',
+      'EB5': 'eb5',
+      'O1': 'o1'
+    };
+    return visaMapping[visaName] || visaName.toLowerCase();
+  };
+
   // Show loading state
   if (loading || !isClient) {
     return (
@@ -413,11 +425,18 @@ export default function Dashboard() {
                   </Link>
                   
                   {currentVisa && (
-                    <Link href="/vistos">
-                      <Button variant="ghost" size="sm" className="w-full text-white hover:bg-white/20">
-                        {hasCustomVisa() ? 'Alterar Visto' : 'Escolher Outro Visto'}
-                      </Button>
-                    </Link>
+                    <>
+                      <Link href={`/documentos/${getVisaId(currentVisa)}`}>
+                        <Button variant="ghost" size="sm" className="w-full text-white hover:bg-white/20">
+                          📋 Ver Documentos Necessários
+                        </Button>
+                      </Link>
+                      <Link href="/vistos">
+                        <Button variant="ghost" size="sm" className="w-full text-white hover:bg-white/20">
+                          {hasCustomVisa() ? 'Alterar Visto' : 'Escolher Outro Visto'}
+                        </Button>
+                      </Link>
+                    </>
                   )}
                 </div>
               </div>

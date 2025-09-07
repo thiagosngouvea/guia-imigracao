@@ -426,6 +426,13 @@ export default function Vistos() {
                     )}
                     
                     <Button 
+                      onClick={() => router.push(`/documentos/${selectedVisa.id}`)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      Ver Documentos
+                    </Button>
+                    
+                    <Button 
                       variant="outline" 
                       onClick={() => router.push('/treinamento')}
                       className="flex-1 sm:flex-none"
@@ -549,9 +556,20 @@ export default function Vistos() {
                       </div>
                     </div>
                     
-                    <Button variant="outline" className="w-full">
-                      Ver Detalhes
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedVisa(visa);
+                      }}>
+                        Ver Detalhes
+                      </Button>
+                      <Button className="flex-1" onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/documentos/${visa.id}`);
+                      }}>
+                        Documentos
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
