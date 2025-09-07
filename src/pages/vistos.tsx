@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { updateUserProfile } from '../lib/auth';
 
 interface VisaType {
   id: string;
@@ -208,10 +209,11 @@ const visaTypes: VisaType[] = [
 const categories = ['Todos', 'Não-Imigrante', 'Imigrante'];
 
 export default function Vistos() {
-  const { user, loading } = useAuth();
+  const { user, userProfile, loading, refreshUserProfile } = useAuth();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [selectedVisa, setSelectedVisa] = useState<VisaType | null>(null);
+  const [isSelectingVisa, setIsSelectingVisa] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -243,7 +245,58 @@ export default function Vistos() {
     return null;
   }
 
+  // Função para selecionar um visto como preferido
+  const handleSelectVisa = async (visaId: string) => {
+    if (!user) return;
+    
+    setIsSelectingVisa(true);
+    try {
+      // Mapear o ID do visto para o formato usado no sistema
+      const visaMapping: Record<string, string> = {
+        'b1b2': 'B1/B2',
+        'f1': 'F1',
+        'h1b': 'H1B',
+        'eb5': 'EB5',
+        'o1': 'O1'
+      };
+
+      const mappedVisaId = visaMapping[visaId] || visaId;
+      
+      await updateUserProfile(user.uid, {
+        selectedVisa: mappedVisaId
+      });
+      
+      await refreshUserProfile();
+      
+      // Mostrar feedback de sucesso
+      alert('Visto selecionado com sucesso! Agora você pode treinar especificamente para este tipo de visto.');
+      
+    } catch (error) {
+      console.error('Erro ao selecionar visto:', error);
+      alert('Erro ao selecionar visto. Tente novamente.');
+    } finally {
+      setIsSelectingVisa(false);
+    }
+  };
+
+  // Função para obter o visto atual do usuário (escolhido ou recomendado)
+  const getCurrentVisa = () => {
+    return userProfile?.selectedVisa || userProfile?.recommendedVisa;
+  };
+
+  // Função para verificar se o usuário escolheu um visto diferente do recomendado
+  const hasCustomVisa = () => {
+    return userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
+  };
+
   if (selectedVisa) {
+    const currentVisa = getCurrentVisa();
+    const isCurrentVisa = selectedVisa.id === 'b1b2' && currentVisa === 'B1/B2' ||
+                         selectedVisa.id === 'f1' && currentVisa === 'F1' ||
+                         selectedVisa.id === 'h1b' && currentVisa === 'H1B' ||
+                         selectedVisa.id === 'eb5' && currentVisa === 'EB5' ||
+                         selectedVisa.id === 'o1' && currentVisa === 'O1';
+
     return (
       <Layout>
         <div className="min-h-screen bg-gray-50 py-12">
@@ -260,10 +313,21 @@ export default function Vistos() {
 
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="bg-blue-600 px-6 py-8 text-white">
-                <h1 className="text-3xl font-bold">{selectedVisa.name}</h1>
-                <p className="mt-2 text-blue-100">{selectedVisa.description}</p>
-                <div className="mt-4 inline-block bg-blue-500 px-3 py-1 rounded-full text-sm">
-                  {selectedVisa.category}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h1 className="text-3xl font-bold">{selectedVisa.name}</h1>
+                    <p className="mt-2 text-blue-100">{selectedVisa.description}</p>
+                    <div className="mt-4 inline-block bg-blue-500 px-3 py-1 rounded-full text-sm">
+                      {selectedVisa.category}
+                    </div>
+                  </div>
+                  
+                  {/* Status do visto */}
+                  {isCurrentVisa && (
+                    <div className="bg-green-500 px-3 py-1 rounded-full text-sm font-medium">
+                      {userProfile?.selectedVisa ? 'Visto Escolhido' : 'Visto Recomendado'}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -340,16 +404,41 @@ export default function Vistos() {
                 </div>
 
                 {/* CTA */}
-                <div className="bg-blue-50 p-6 rounded-lg text-center">
-                  <h4 className="text-lg font-semibold text-blue-900 mb-2">
-                    Precisa de ajuda com este visto?
-                  </h4>
-                  <p className="text-blue-700 mb-4">
-                    Nossa IA pode te ajudar a se preparar para a entrevista e esclarecer dúvidas específicas.
-                  </p>
-                  <div className="space-x-4">
-                    <Button>Treinar com IA</Button>
-                    <Button variant="outline">Falar com Especialista</Button>
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <div className="text-center mb-4">
+                    <h4 className="text-lg font-semibold text-blue-900 mb-2">
+                      Quer focar neste tipo de visto?
+                    </h4>
+                    <p className="text-blue-700 mb-4">
+                      Selecione este visto para personalizar seu treinamento e preparação.
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    {!isCurrentVisa && (
+                      <Button 
+                        onClick={() => handleSelectVisa(selectedVisa.id)}
+                        disabled={isSelectingVisa}
+                        className="flex-1 sm:flex-none"
+                      >
+                        {isSelectingVisa ? 'Selecionando...' : 'Escolher Este Visto'}
+                      </Button>
+                    )}
+                    
+                    <Button 
+                      variant="outline" 
+                      onClick={() => router.push('/treinamento')}
+                      className="flex-1 sm:flex-none"
+                    >
+                      Treinar com IA
+                    </Button>
+                    
+                    <Button 
+                      variant="outline"
+                      className="flex-1 sm:flex-none"
+                    >
+                      Falar com Especialista
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -373,6 +462,19 @@ export default function Vistos() {
               Conheça os principais tipos de visto americano, seus requisitos e processos. 
               Encontre o visto ideal para sua situação.
             </p>
+            
+            {/* Mostrar visto atual se houver */}
+            {getCurrentVisa() && (
+              <div className="mt-6 inline-flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Seu visto atual: {getCurrentVisa()}
+                {userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa && (
+                  <span className="ml-2 text-xs">(Escolhido por você)</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Category Filter */}
@@ -396,47 +498,64 @@ export default function Vistos() {
 
           {/* Visa Cards */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredVisas.map((visa) => (
-              <div
-                key={visa.id}
-                className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
-                onClick={() => setSelectedVisa(visa)}
-              >
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      {visa.name}
-                    </h3>
-                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                      {visa.category}
-                    </span>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-4 line-clamp-3">
-                    {visa.description}
-                  </p>
-                  
-                  <div className="space-y-2 text-sm text-gray-500 mb-4">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {visa.duration}
+            {filteredVisas.map((visa) => {
+              const currentVisa = getCurrentVisa();
+              const isCurrentVisa = visa.id === 'b1b2' && currentVisa === 'B1/B2' ||
+                                   visa.id === 'f1' && currentVisa === 'F1' ||
+                                   visa.id === 'h1b' && currentVisa === 'H1B' ||
+                                   visa.id === 'eb5' && currentVisa === 'EB5' ||
+                                   visa.id === 'o1' && currentVisa === 'O1';
+              
+              return (
+                <div
+                  key={visa.id}
+                  className={`bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer relative ${
+                    isCurrentVisa ? 'ring-2 ring-green-500' : ''
+                  }`}
+                  onClick={() => setSelectedVisa(visa)}
+                >
+                  {isCurrentVisa && (
+                    <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                      {userProfile?.selectedVisa ? 'Escolhido' : 'Recomendado'}
                     </div>
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {visa.fees}
-                    </div>
-                  </div>
+                  )}
                   
-                  <Button variant="outline" className="w-full">
-                    Ver Detalhes
-                  </Button>
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold text-gray-900">
+                        {visa.name}
+                      </h3>
+                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                        {visa.category}
+                      </span>
+                    </div>
+                    
+                    <p className="text-gray-600 mb-4 line-clamp-3">
+                      {visa.description}
+                    </p>
+                    
+                    <div className="space-y-2 text-sm text-gray-500 mb-4">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {visa.duration}
+                      </div>
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {visa.fees}
+                      </div>
+                    </div>
+                    
+                    <Button variant="outline" className="w-full">
+                      Ver Detalhes
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* CTA Section */}
@@ -448,7 +567,11 @@ export default function Vistos() {
               Faça nosso questionário inteligente e descubra qual tipo de visto americano 
               é mais adequado para seu perfil e objetivos.
             </p>
-            <Button variant="secondary" size="lg">
+            <Button 
+              variant="secondary" 
+              size="lg"
+              onClick={() => router.push('/questionario')}
+            >
               Fazer Questionário Gratuito
             </Button>
           </div>

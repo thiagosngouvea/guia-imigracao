@@ -22,6 +22,7 @@ import {
     createdAt: any;
     lastLoginAt: any;
     recommendedVisa?: string;
+    selectedVisa?: string; // Novo campo para o visto escolhido pelo usuário
     completedQuiz?: boolean;
     interviewsPracticed?: number;
     photoURL?: string;

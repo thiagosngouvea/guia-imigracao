@@ -200,6 +200,16 @@ export default function Dashboard() {
     return tasks.slice(0, 3);
   };
 
+  // Função para obter o visto atual (escolhido pelo usuário ou recomendado)
+  const getCurrentVisa = () => {
+    return userProfile?.selectedVisa || userProfile?.recommendedVisa;
+  };
+
+  // Função para verificar se o usuário escolheu um visto diferente do recomendado
+  const hasCustomVisa = () => {
+    return userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
+  };
+
   // Show loading state
   if (loading || !isClient) {
     return (
@@ -226,6 +236,7 @@ export default function Dashboard() {
   const recentActivities = generateRecentActivities();
   const upcomingTasks = generateUpcomingTasks();
   const progress = calculateProgress();
+  const currentVisa = getCurrentVisa();
 
   return (
     <Layout>
@@ -251,10 +262,15 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Visto Recomendado</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {userProfile?.recommendedVisa || 'Pendente'}
+                  <p className="text-sm font-medium text-gray-600">
+                    {hasCustomVisa() ? 'Visto Escolhido' : 'Visto Recomendado'}
                   </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {currentVisa || 'Pendente'}
+                  </p>
+                  {hasCustomVisa() && (
+                    <p className="text-xs text-blue-600">Personalizado por você</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -365,32 +381,45 @@ export default function Dashboard() {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Recommended Visa Card */}
+              {/* Recommended/Selected Visa Card */}
               <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow text-white p-6">
-                <h3 className="font-bold text-lg mb-2">Seu Visto Recomendado</h3>
+                <h3 className="font-bold text-lg mb-2">
+                  {hasCustomVisa() ? 'Seu Visto Escolhido' : 'Seu Visto Recomendado'}
+                </h3>
                 <div className="bg-white/20 rounded-lg p-4 mb-4">
                   <h4 className="font-semibold text-xl">
-                    {userProfile?.recommendedVisa || 'Complete o questionário'}
+                    {currentVisa || 'Complete o questionário'}
                   </h4>
                   <p className="text-blue-100 text-sm">
-                    {userProfile?.recommendedVisa 
-                      ? 'Baseado no seu perfil' 
+                    {currentVisa 
+                      ? (hasCustomVisa() ? 'Selecionado por você' : 'Baseado no seu perfil')
                       : 'Para descobrir seu visto ideal'
                     }
                   </p>
                 </div>
-                <Link href={
-                  userProfile?.recommendedVisa 
-                    ? (userProfile?.interviewsPracticed === 0 ? '/treinamento' : '/vistos')
-                    : '/questionario'
-                }>
-                  <Button variant="secondary" size="sm" className="w-full">
-                    {userProfile?.recommendedVisa 
-                      ? (userProfile?.interviewsPracticed === 0 ? 'Começar Treinamento' : 'Ver Detalhes')
-                      : 'Fazer Questionário'
-                    }
-                  </Button>
-                </Link>
+                
+                <div className="space-y-2">
+                  <Link href={
+                    currentVisa 
+                      ? (userProfile?.interviewsPracticed === 0 ? '/treinamento' : '/vistos')
+                      : '/questionario'
+                  }>
+                    <Button variant="secondary" size="sm" className="w-full">
+                      {currentVisa 
+                        ? (userProfile?.interviewsPracticed === 0 ? 'Começar Treinamento' : 'Ver Detalhes')
+                        : 'Fazer Questionário'
+                      }
+                    </Button>
+                  </Link>
+                  
+                  {currentVisa && (
+                    <Link href="/vistos">
+                      <Button variant="ghost" size="sm" className="w-full text-white hover:bg-white/20">
+                        {hasCustomVisa() ? 'Alterar Visto' : 'Escolher Outro Visto'}
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
 
               {/* Upcoming Tasks */}
