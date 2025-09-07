@@ -22,6 +22,7 @@ interface ChatRequest {
   context: Array<{
     role: 'user' | 'ai' | 'system';
     content: string;
+    // Removido campos desnecessários como audioData, timestamp, etc.
   }>;
 }
 
@@ -99,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Chamar a API do OpenAI
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages: messages,
       max_tokens: 500,
       temperature: 0.7,

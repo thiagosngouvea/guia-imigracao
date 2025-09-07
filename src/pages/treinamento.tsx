@@ -10,6 +10,8 @@ interface Message {
   content: string;
   timestamp: Date;
   isVoice?: boolean;
+  isThinking?: boolean;
+  audioData?: string;
 }
 
 interface InterviewScenario {
@@ -136,6 +138,9 @@ export default function Treinamento() {
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Ref para controlar áudio
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Função para obter o visto atual (escolhido pelo usuário ou recomendado)
   const getCurrentVisa = () => {
     return userProfile?.selectedVisa || userProfile?.recommendedVisa;
@@ -181,6 +186,18 @@ export default function Treinamento() {
     }
   }, []);
 
+  // Função para parar áudio
+  const stopAudio = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
+    setIsPlaying(false);
+  };
+
   const startInterview = (scenario: InterviewScenario) => {
     setSelectedScenario(scenario);
     
@@ -216,18 +233,71 @@ export default function Treinamento() {
     }
   };
 
-  // Função para converter texto em fala
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === 'pt' ? 'pt-BR' : 'en-US';
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
+  // Função para converter texto em fala usando OpenAI TTS
+  const speakText = async (text: string) => {
+    try {
+      // Parar qualquer áudio anterior
+      stopAudio();
+      setIsPlaying(true);
       
-      utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = () => setIsPlaying(false);
+      // Chamar API de TTS
+      const response = await fetch('/api/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          text: text,
+          language: language 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro na síntese de voz');
+      }
+
+      const data = await response.json();
       
-      speechSynthesis.speak(utterance);
+      // Converter base64 para blob e reproduzir
+      const audioData = atob(data.audio);
+      const audioArray = new Uint8Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i);
+      }
+      
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      currentAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+      };
+      
+      audio.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+      };
+      
+      await audio.play();
+      
+    } catch (error) {
+      console.error('Erro na síntese de voz:', error);
+      setIsPlaying(false);
+      // Fallback para speechSynthesis nativo
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language === 'pt' ? 'pt-BR' : 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        
+        utterance.onend = () => setIsPlaying(false);
+        speechSynthesis.speak(utterance);
+      }
     }
   };
 
@@ -276,8 +346,10 @@ export default function Treinamento() {
     }
   };
 
-  // Processar entrada de voz (converter para texto)
+  // Processar entrada de voz (converter para texto e enviar automaticamente)
   const processVoiceInput = async (audioBlob: Blob) => {
+    setIsLoading(true);
+    
     try {
       // Converter Blob para Base64
       const arrayBuffer = await audioBlob.arrayBuffer();
@@ -297,36 +369,54 @@ export default function Treinamento() {
       }
 
       const data = await response.json();
-      setCurrentInput(data.transcription);
+      const transcribedText = data.transcription;
+
+      // Criar mensagem do usuário diretamente
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: transcribedText,
+        timestamp: new Date(),
+        isVoice: true
+      };
+
+      setMessages(prev => [...prev, userMessage]);
+
+      // Enviar para ChatGPT automaticamente
+      await sendMessageToAI(transcribedText);
+
     } catch (error) {
       console.error('Erro ao processar áudio:', error);
       alert('Erro ao transcrever áudio. Tente novamente.');
-      
-      // Fallback para texto simulado em caso de erro
-      const simulatedText = language === 'pt' 
-        ? "Erro na transcrição. Digite sua resposta manualmente."
-        : "Transcription error. Please type your answer manually.";
-      setCurrentInput(simulatedText);
+      setIsLoading(false);
     }
   };
 
-  // Função para enviar mensagem (integração com ChatGPT)
-  const sendMessage = async () => {
-    if (!currentInput.trim() || !selectedScenario) return;
+  // Separar a lógica de envio para IA
+  const sendMessageToAI = async (messageText: string) => {
+    if (!selectedScenario) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: currentInput,
+    // Mostrar que o oficial está pensando
+    const thinkingMessage: Message = {
+      id: 'thinking-' + Date.now().toString(),
+      role: 'ai',
+      content: language === 'pt' 
+        ? 'O oficial consular está analisando sua resposta...' 
+        : 'The consular officer is analyzing your response...',
       timestamp: new Date(),
-      isVoice: interactionMode === 'voice'
+      isThinking: true
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentInput('');
-    setIsLoading(true);
+    setMessages(prev => [...prev, thinkingMessage]);
 
     try {
+      // Filtrar contexto para remover audioData e campos desnecessários
+      const cleanContext = messages.slice(-5).map(msg => ({
+        role: msg.role,
+        content: msg.content
+        // Removendo audioData, isThinking, timestamp, etc.
+      }));
+
       // Integração com ChatGPT API
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -334,11 +424,11 @@ export default function Treinamento() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: currentInput,
+          message: messageText,
           scenario: selectedScenario,
           language: language,
           questionIndex: currentQuestionIndex,
-          context: messages.slice(-5) // Últimas 5 mensagens para contexto
+          context: cleanContext // Contexto limpo sem audioData
         }),
       });
 
@@ -348,55 +438,94 @@ export default function Treinamento() {
 
       const data = await response.json();
       
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        content: data.response,
-        timestamp: new Date()
-      };
+      // Se estiver no modo voz, gerar áudio primeiro
+      if (interactionMode === 'voice') {
+        // Mostrar que está preparando o áudio
+        setMessages(prev => prev.map(msg => 
+          msg.id === thinkingMessage.id 
+            ? { ...msg, content: language === 'pt' 
+                ? 'Preparando resposta em áudio...' 
+                : 'Preparing audio response...' }
+            : msg
+        ));
 
-      setMessages(prev => [...prev, aiMessage]);
+        try {
+          // Gerar áudio
+          const ttsResponse = await fetch('/api/text-to-speech', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              text: data.response,
+              language: language 
+            }),
+          });
+
+          if (!ttsResponse.ok) {
+            throw new Error('Erro na síntese de voz');
+          }
+
+          const audioData = await ttsResponse.json();
+          
+          // Agora remover mensagem de "pensando" e mostrar resposta real
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'ai',
+            content: data.response,
+            timestamp: new Date(),
+            audioData: audioData.audio // Guardar áudio na mensagem (só localmente)
+          };
+
+          setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id).concat(aiMessage));
+          
+          // Reproduzir áudio automaticamente
+          playAudioFromBase64(audioData.audio);
+          
+        } catch (audioError) {
+          console.error('Erro ao gerar áudio:', audioError);
+          
+          // Fallback: mostrar texto sem áudio
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'ai',
+            content: data.response,
+            timestamp: new Date()
+          };
+
+          setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id).concat(aiMessage));
+        }
+      } else {
+        // Modo texto: mostrar imediatamente
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'ai',
+          content: data.response,
+          timestamp: new Date()
+        };
+
+        setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id).concat(aiMessage));
+      }
       
-      // Se há próxima pergunta, atualizar índice
       if (data.nextQuestionIndex !== undefined) {
         setCurrentQuestionIndex(data.nextQuestionIndex);
-      }
-
-      // Falar resposta se estiver no modo voz
-      if (interactionMode === 'voice') {
-        speakText(data.response);
       }
 
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       
-      // Fallback para resposta simulada
+      // Remover mensagem de pensando e mostrar erro
+      setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id));
+      
+      // Fallback logic...
       let aiResponse = '';
       
-      if (currentInput.length < 20) {
+      if (messageText.length < 20) {
         aiResponse = language === 'pt' 
           ? "Sua resposta parece bem breve. Em uma entrevista real, tente fornecer respostas mais detalhadas. "
           : "Your answer seems quite brief. In a real interview, try to provide more detailed responses. ";
-      } else if (currentInput.length > 200) {
-        aiResponse = language === 'pt'
-          ? "Boa resposta detalhada, mas tente ser mais conciso. Oficiais consulares apreciam respostas claras e diretas. "
-          : "Good detail, but try to be more concise. Consular officers appreciate clear, direct answers. ";
       } else {
         aiResponse = language === 'pt' ? "Boa resposta. " : "Good response. ";
-      }
-
-      // Próxima pergunta ou finalização
-      if (currentQuestionIndex < selectedScenario.questions[language].length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        const nextQuestion = selectedScenario.questions[language][nextIndex];
-        aiResponse += language === 'pt'
-          ? `Vamos para a próxima pergunta: ${nextQuestion}`
-          : `Let's move to the next question: ${nextQuestion}`;
-      } else {
-        aiResponse += language === 'pt'
-          ? "Obrigado, isso conclui nossa simulação de entrevista. Aqui está seu feedback: Você respondeu a todas as perguntas. Em uma entrevista real, lembre-se de ser confiante, honesto e conciso. Pratique falar claramente e mantenha contato visual."
-          : "Thank you, that concludes our interview simulation. Here's your feedback: You provided answers to all questions. In a real interview, remember to be confident, honest, and concise. Practice speaking clearly and maintain eye contact.";
       }
 
       const aiMessage: Message = {
@@ -408,12 +537,65 @@ export default function Treinamento() {
 
       setMessages(prev => [...prev, aiMessage]);
       
-      if (interactionMode === 'voice') {
-        speakText(aiResponse);
-      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Função para reproduzir áudio do base64
+  const playAudioFromBase64 = async (audioBase64: string) => {
+    try {
+      setIsPlaying(true);
+      
+      const audioData = atob(audioBase64);
+      const audioArray = new Uint8Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i);
+      }
+      
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      currentAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+      };
+      
+      audio.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+      };
+      
+      await audio.play();
+      
+    } catch (error) {
+      console.error('Erro ao reproduzir áudio:', error);
+      setIsPlaying(false);
+    }
+  };
+
+  // Atualizar a função sendMessage para texto
+  const sendMessage = async () => {
+    if (!currentInput.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: currentInput,
+      timestamp: new Date(),
+      isVoice: false
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    const messageToSend = currentInput;
+    setCurrentInput('');
+    
+    await sendMessageToAI(messageToSend);
   };
 
   const resetInterview = () => {
@@ -424,10 +606,7 @@ export default function Treinamento() {
     setInterviewStarted(false);
     
     // Parar qualquer reprodução de áudio
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-    }
-    setIsPlaying(false);
+    stopAudio();
   };
 
   // Show loading state
@@ -542,10 +721,12 @@ export default function Treinamento() {
                           ? 'bg-blue-600 text-white'
                           : message.role === 'system'
                           ? 'bg-yellow-100 text-yellow-800 text-sm'
+                          : message.isThinking
+                          ? 'bg-gray-200 text-gray-600 italic'
                           : 'bg-gray-100 text-gray-900'
                       }`}
                     >
-                      {message.role === 'ai' && (
+                      {message.role === 'ai' && !message.isThinking && (
                         <div className="flex items-center mb-1">
                           <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center mr-2">
                             <span className="text-white text-xs font-bold">CO</span>
@@ -553,28 +734,39 @@ export default function Treinamento() {
                           <span className="text-xs text-gray-500">
                             {language === 'pt' ? 'Oficial Consular' : 'Consular Officer'}
                           </span>
-                          {message.role === 'ai' && interactionMode === 'voice' && (
+                          {message.audioData && (
                             <button
-                              onClick={() => speakText(message.content)}
+                              onClick={() => isPlaying ? stopAudio() : playAudioFromBase64(message.audioData!)}
                               className="ml-2 text-blue-600 hover:text-blue-800"
-                              disabled={isPlaying}
+                              disabled={isLoading}
                             >
-                              {isPlaying ? '🔊' : '🔈'}
+                              {isPlaying ? '⏹️' : '🔊'}
                             </button>
                           )}
                         </div>
                       )}
+                      
+                      {message.isThinking && (
+                        <div className="flex items-center mb-1">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          <span className="text-xs text-gray-500">
+                            {language === 'pt' ? 'Oficial Consular' : 'Consular Officer'}
+                          </span>
+                        </div>
+                      )}
+                      
                       {message.role === 'user' && message.isVoice && (
                         <div className="flex items-center mb-1">
                           <span className="text-xs opacity-75">🎤 Mensagem de voz</span>
                         </div>
                       )}
+                      
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                   </div>
                 ))}
                 
-                {isLoading && (
+                {isLoading && interactionMode === 'text' && (
                   <div className="flex justify-start">
                     <div className="bg-gray-100 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
                       <div className="flex items-center">
