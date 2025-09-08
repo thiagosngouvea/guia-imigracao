@@ -5,6 +5,7 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
+import { PredictiveAnalysis } from '../components/PredictiveAnalysis';
 
 interface QuickAction {
   id: string;
@@ -425,7 +426,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 
-                <div className="space-y-2">
+                <div className="flex flex-col space-y-2">
                   <Link href={
                     currentVisa 
                       ? (userProfile?.interviewsPracticed === 0 ? '/treinamento' : '/vistos')
