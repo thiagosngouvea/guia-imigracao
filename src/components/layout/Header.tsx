@@ -32,6 +32,9 @@ export function Header() {
                 <Link href="/questionario" className="text-gray-600 hover:text-gray-900">
                   Questionário
                 </Link>
+                <Link href="/ds160" className="text-gray-600 hover:text-gray-900">
+                  DS-160
+                </Link>
                 <Link href="/treinamento" className="text-gray-600 hover:text-gray-900">
                   Treino AI
                 </Link>
