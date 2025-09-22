@@ -686,7 +686,7 @@ export default function DS160Helper() {
               <ul className="space-y-2 text-blue-800">
                 <li>• Preencha todas as seções com suas informações pessoais</li>
                 <li>• Os dados são salvos automaticamente no seu navegador</li>
-                <li>• Use o botão "Exportar Dados" para baixar um arquivo com suas informações</li>
+                <li>• Use o botão &quot;Exportar Dados&quot; para baixar um arquivo com suas informações</li>
                 <li>• Acesse o site oficial do DS-160: <a href="https://ceac.state.gov/genniv" target="_blank" rel="noopener noreferrer" className="underline font-medium">ceac.state.gov/genniv</a></li>
                 <li>• Transfira os dados daqui para o formulário oficial</li>
                 <li>• Mantenha este assistente aberto em outra aba para consulta</li>
