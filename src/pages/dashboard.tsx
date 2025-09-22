@@ -6,6 +6,12 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
 import { PredictiveAnalysis } from '../components/PredictiveAnalysis';
+import { 
+  getUserTrainingSessions, 
+  getUserTrainingStats, 
+  TrainingSession, 
+  TrainingStats 
+} from '../lib/training-history';
 
 interface QuickAction {
   id: string;
@@ -38,10 +44,39 @@ export default function Dashboard() {
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  const [trainingSessions, setTrainingSessions] = useState<TrainingSession[]>([]);
+  const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null);
+  const [loadingTrainingData, setLoadingTrainingData] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Carregar dados de treinamento
+  useEffect(() => {
+    const loadTrainingData = async () => {
+      if (!user) return;
+      
+      setLoadingTrainingData(true);
+      try {
+        const [sessions, stats] = await Promise.all([
+          getUserTrainingSessions(user.uid, 5), // Últimas 5 sessões
+          getUserTrainingStats(user.uid)
+        ]);
+        
+        setTrainingSessions(sessions);
+        setTrainingStats(stats);
+      } catch (error) {
+        console.error('Erro ao carregar dados de treinamento:', error);
+      } finally {
+        setLoadingTrainingData(false);
+      }
+    };
+
+    if (user && isClient) {
+      loadTrainingData();
+    }
+  }, [user, isClient]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -313,8 +348,13 @@ export default function Dashboard() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Treinos Realizados</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {userProfile?.interviewsPracticed || 0}
+                    {trainingStats?.totalSessions || userProfile?.interviewsPracticed || 0}
                   </p>
+                  {trainingStats?.completedSessions !== undefined && (
+                    <p className="text-xs text-green-600">
+                      {trainingStats.completedSessions} completos
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -405,6 +445,136 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Training History */}
+              {trainingSessions.length > 0 && (
+                <>
+                  <h2 className="text-xl font-bold text-gray-900 mb-6 mt-8">Histórico de Treinamento</h2>
+                  <div className="bg-white rounded-lg shadow">
+                    <div className="p-6">
+                      {loadingTrainingData ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                          <span className="text-gray-600">Carregando histórico...</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Training Stats Summary */}
+                          {trainingStats && (
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-blue-600">{trainingStats.totalSessions}</p>
+                                <p className="text-xs text-gray-600">Total de Sessões</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-green-600">
+                                  {Math.floor(trainingStats.totalDuration / 60)}min
+                                </p>
+                                <p className="text-xs text-gray-600">Tempo Total</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-purple-600">{trainingStats.totalMessages}</p>
+                                <p className="text-xs text-gray-600">Mensagens Trocadas</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-orange-600">
+                                  {trainingStats.favoriteVisaType || 'N/A'}
+                                </p>
+                                <p className="text-xs text-gray-600">Visto Mais Praticado</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Recent Sessions */}
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-semibold text-gray-900">Sessões Recentes</h3>
+                              <Link href="/treinamento">
+                                <Button variant="outline" size="sm">
+                                  Novo Treinamento
+                                </Button>
+                              </Link>
+                            </div>
+                            
+                            {trainingSessions.map((session) => (
+                              <div key={session.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <h4 className="font-medium text-gray-900">{session.scenarioName}</h4>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        session.difficulty === 'Iniciante' ? 'bg-green-100 text-green-800' :
+                                        session.difficulty === 'Intermediário' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {session.difficulty}
+                                      </span>
+                                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                        {session.visaType}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                                      <div>
+                                        <span className="font-medium">Duração:</span>
+                                        <p>{session.duration ? `${Math.floor(session.duration / 60)}min ${session.duration % 60}s` : 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Mensagens:</span>
+                                        <p>{session.totalMessages}</p>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Perguntas:</span>
+                                        <p>{session.questionsAnswered}/{session.totalQuestions}</p>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Status:</span>
+                                        <p className={session.completed ? 'text-green-600' : 'text-orange-600'}>
+                                          {session.completed ? 'Completo' : 'Incompleto'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                      <span>
+                                        🌐 {session.language === 'pt' ? 'Português' : 'English'}
+                                      </span>
+                                      <span>
+                                        {session.interactionMode === 'voice' ? '🎤 Voz' : '✍️ Texto'}
+                                      </span>
+                                      <span>
+                                        📅 {session.startTime?.toDate?.()?.toLocaleDateString('pt-BR') || 'Data não disponível'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-col items-end space-y-2">
+                                    {session.completed && (
+                                      <div className="text-green-500">
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {trainingSessions.length >= 5 && (
+                              <div className="text-center pt-4">
+                                <Button variant="ghost" size="sm">
+                                  Ver Mais Sessões
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Sidebar */}

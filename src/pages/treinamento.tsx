@@ -4,6 +4,13 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
+import { RealtimeTraining } from '../components/RealtimeTraining';
+import { 
+  createTrainingSession, 
+  addMessageToSession, 
+  finishTrainingSession,
+  TrainingMessage 
+} from '../lib/training-history';
 
 interface Message {
   id: string;
@@ -28,7 +35,7 @@ interface InterviewScenario {
 }
 
 type Language = 'pt' | 'en';
-type InteractionMode = 'text' | 'voice';
+type InteractionMode = 'text' | 'voice' | 'realtime'; // Atualizado para incluir 'realtime'
 
 const scenarios: InterviewScenario[] = [
   {
@@ -124,27 +131,46 @@ export default function Treinamento() {
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
   const [selectedScenario, setSelectedScenario] = useState<InterviewScenario | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentInput, setCurrentInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [language, setLanguage] = useState<Language>('pt');
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>('text');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('text'); // Mudado padrão para 'text'
   
-  // Refs para Web APIs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Ref para controlar áudio
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Estado para controlar a sessão de treinamento
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isSavingSession, setIsSavingSession] = useState(false);
 
   // Função para obter o visto atual (escolhido pelo usuário ou recomendado)
   const getCurrentVisa = () => {
     return userProfile?.selectedVisa || userProfile?.recommendedVisa;
+  };
+
+  // Função para salvar mensagem na sessão atual
+  const saveMessageToSession = async (message: Message) => {
+    if (!currentSessionId || !user) return;
+    
+    try {
+      // Criar objeto base com campos obrigatórios
+      const trainingMessage: Omit<TrainingMessage, 'id'> = {
+        role: message.role,
+        content: message.content,
+        timestamp: message.timestamp
+      };
+      
+      // Adicionar campos opcionais apenas se não forem undefined
+      if (message.isVoice !== undefined) {
+        trainingMessage.isVoice = message.isVoice;
+      }
+      
+      if (message.isThinking !== undefined) {
+        trainingMessage.isThinking = message.isThinking;
+      }
+      
+      await addMessageToSession(currentSessionId, trainingMessage);
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+      // Não interrompe o fluxo se houver erro ao salvar
+    }
   };
 
   // Função para filtrar cenários baseado no visto atual
@@ -168,11 +194,6 @@ export default function Treinamento() {
     return relevantScenarios.length > 0 ? relevantScenarios : scenarios;
   };
 
-  // Auto-scroll para a última mensagem
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
@@ -180,434 +201,57 @@ export default function Treinamento() {
     }
   }, [user, loading, router]);
 
-  // Inicializar Web Speech API
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      // Speech recognition está disponível
-    }
-  }, []);
-
-  // Função para parar áudio
-  const stopAudio = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-    }
-    setIsPlaying(false);
-  };
-
-  const startInterview = (scenario: InterviewScenario) => {
-    setSelectedScenario(scenario);
+  const startInterview = async (scenario: InterviewScenario) => {
+    if (!user) return;
     
-    const systemMessage = language === 'pt' 
-      ? `Iniciando simulação de entrevista para visto ${scenario.visaType}. Você pode responder em português ou inglês.`
-      : `Starting visa interview simulation for ${scenario.visaType}. You can respond in Portuguese or English.`;
-    
-    const firstQuestion = scenario.questions[language][0];
-    const aiGreeting = language === 'pt'
-      ? `Bom dia! Por favor, sente-se. Eu conduzirei sua entrevista de visto hoje. Vamos começar com a primeira pergunta: ${firstQuestion}`
-      : `Good morning! Please have a seat. I'll be conducting your visa interview today. Let's start with the first question: ${firstQuestion}`;
-
-    setMessages([
-      {
-        id: '1',
-        role: 'system',
-        content: systemMessage,
-        timestamp: new Date()
-      },
-      {
-        id: '2',
-        role: 'ai',
-        content: aiGreeting,
-        timestamp: new Date()
-      }
-    ]);
-    setCurrentQuestionIndex(0);
-    setInterviewStarted(true);
-
-    // Falar a primeira pergunta se estiver no modo voz
-    if (interactionMode === 'voice') {
-      speakText(aiGreeting);
-    }
-  };
-
-  // Função para converter texto em fala usando OpenAI TTS
-  const speakText = async (text: string) => {
-    try {
-      // Parar qualquer áudio anterior
-      stopAudio();
-      setIsPlaying(true);
-      
-      // Chamar API de TTS
-      const response = await fetch('/api/text-to-speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text: text,
-          language: language 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro na síntese de voz');
-      }
-
-      const data = await response.json();
-      
-      // Converter base64 para blob e reproduzir
-      const audioData = atob(data.audio);
-      const audioArray = new Uint8Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        audioArray[i] = audioData.charCodeAt(i);
-      }
-      
-      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      currentAudioRef.current = audio;
-      
-      audio.onended = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-      };
-      
-      audio.onerror = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-      };
-      
-      await audio.play();
-      
-    } catch (error) {
-      console.error('Erro na síntese de voz:', error);
-      setIsPlaying(false);
-      // Fallback para speechSynthesis nativo
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = language === 'pt' ? 'pt-BR' : 'en-US';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        
-        utterance.onend = () => setIsPlaying(false);
-        speechSynthesis.speak(utterance);
-      }
-    }
-  };
-
-  // Função para iniciar gravação de voz
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        } 
-      });
-      
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        await processVoiceInput(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Erro ao acessar microfone:', error);
-      alert('Erro ao acessar o microfone. Verifique as permissões.');
-    }
-  };
-
-  // Função para parar gravação
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  // Processar entrada de voz (converter para texto e enviar automaticamente)
-  const processVoiceInput = async (audioBlob: Blob) => {
-    setIsLoading(true);
+    setIsSavingSession(true);
     
     try {
-      // Converter Blob para Base64
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const audioBase64 = Buffer.from(arrayBuffer).toString('base64');
-
-      // Enviar para API de transcrição
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ audioBase64 }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro na transcrição');
-      }
-
-      const data = await response.json();
-      const transcribedText = data.transcription;
-
-      // Criar mensagem do usuário diretamente
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: transcribedText,
-        timestamp: new Date(),
-        isVoice: true
-      };
-
-      setMessages(prev => [...prev, userMessage]);
-
-      // Enviar para ChatGPT automaticamente
-      await sendMessageToAI(transcribedText);
+      // Criar nova sessão no Firebase
+      const sessionId = await createTrainingSession(
+        user.uid,
+        scenario.id,
+        scenario.name,
+        scenario.visaType,
+        scenario.difficulty,
+        language,
+        interactionMode
+      );
+      
+      setCurrentSessionId(sessionId);
+      setSelectedScenario(scenario);
+      setCurrentQuestionIndex(0);
+      setInterviewStarted(true);
 
     } catch (error) {
-      console.error('Erro ao processar áudio:', error);
-      alert('Erro ao transcrever áudio. Tente novamente.');
-      setIsLoading(false);
-    }
-  };
-
-  // Separar a lógica de envio para IA
-  const sendMessageToAI = async (messageText: string) => {
-    if (!selectedScenario) return;
-
-    // Mostrar que o oficial está pensando
-    const thinkingMessage: Message = {
-      id: 'thinking-' + Date.now().toString(),
-      role: 'ai',
-      content: language === 'pt' 
-        ? 'O oficial consular está analisando sua resposta...' 
-        : 'The consular officer is analyzing your response...',
-      timestamp: new Date(),
-      isThinking: true
-    };
-
-    setMessages(prev => [...prev, thinkingMessage]);
-
-    try {
-      // Filtrar contexto para remover audioData e campos desnecessários
-      const cleanContext = messages.slice(-5).map(msg => ({
-        role: msg.role,
-        content: msg.content
-        // Removendo audioData, isThinking, timestamp, etc.
-      }));
-
-      // Integração com ChatGPT API
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: messageText,
-          scenario: selectedScenario,
-          language: language,
-          questionIndex: currentQuestionIndex,
-          context: cleanContext // Contexto limpo sem audioData
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro na comunicação com a IA');
-      }
-
-      const data = await response.json();
-      
-      // Se estiver no modo voz, gerar áudio primeiro
-      if (interactionMode === 'voice') {
-        // Mostrar que está preparando o áudio
-        setMessages(prev => prev.map(msg => 
-          msg.id === thinkingMessage.id 
-            ? { ...msg, content: language === 'pt' 
-                ? 'Preparando resposta em áudio...' 
-                : 'Preparing audio response...' }
-            : msg
-        ));
-
-        try {
-          // Gerar áudio
-          const ttsResponse = await fetch('/api/text-to-speech', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              text: data.response,
-              language: language 
-            }),
-          });
-
-          if (!ttsResponse.ok) {
-            throw new Error('Erro na síntese de voz');
-          }
-
-          const audioData = await ttsResponse.json();
-          
-          // Agora remover mensagem de "pensando" e mostrar resposta real
-          const aiMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: 'ai',
-            content: data.response,
-            timestamp: new Date(),
-            audioData: audioData.audio // Guardar áudio na mensagem (só localmente)
-          };
-
-          setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id).concat(aiMessage));
-          
-          // Reproduzir áudio automaticamente
-          playAudioFromBase64(audioData.audio);
-          
-        } catch (audioError) {
-          console.error('Erro ao gerar áudio:', audioError);
-          
-          // Fallback: mostrar texto sem áudio
-          const aiMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: 'ai',
-            content: data.response,
-            timestamp: new Date()
-          };
-
-          setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id).concat(aiMessage));
-        }
-      } else {
-        // Modo texto: mostrar imediatamente
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'ai',
-          content: data.response,
-          timestamp: new Date()
-        };
-
-        setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id).concat(aiMessage));
-      }
-      
-      if (data.nextQuestionIndex !== undefined) {
-        setCurrentQuestionIndex(data.nextQuestionIndex);
-      }
-
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
-      
-      // Remover mensagem de pensando e mostrar erro
-      setMessages(prev => prev.filter(msg => msg.id !== thinkingMessage.id));
-      
-      // Fallback logic...
-      let aiResponse = '';
-      
-      if (messageText.length < 20) {
-        aiResponse = language === 'pt' 
-          ? "Sua resposta parece bem breve. Em uma entrevista real, tente fornecer respostas mais detalhadas. "
-          : "Your answer seems quite brief. In a real interview, try to provide more detailed responses. ";
-      } else {
-        aiResponse = language === 'pt' ? "Boa resposta. " : "Good response. ";
-      }
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        content: aiResponse,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-      
+      console.error('Erro ao iniciar sessão de treinamento:', error);
+      alert('Erro ao iniciar treinamento. Tente novamente.');
     } finally {
-      setIsLoading(false);
+      setIsSavingSession(false);
     }
   };
 
-  // Função para reproduzir áudio do base64
-  const playAudioFromBase64 = async (audioBase64: string) => {
-    try {
-      setIsPlaying(true);
-      
-      const audioData = atob(audioBase64);
-      const audioArray = new Uint8Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        audioArray[i] = audioData.charCodeAt(i);
+  const resetInterview = async () => {
+    // Finalizar sessão atual se existir
+    if (currentSessionId && selectedScenario) {
+      try {
+        const completed = currentQuestionIndex >= selectedScenario.questions[language].length - 1;
+        
+        await finishTrainingSession(
+          currentSessionId, 
+          currentQuestionIndex + 1, 
+          selectedScenario.questions[language].length, 
+          completed
+        );
+      } catch (error) {
+        console.error('Erro ao finalizar sessão:', error);
       }
-      
-      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      currentAudioRef.current = audio;
-      
-      audio.onended = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-      };
-      
-      audio.onerror = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-      };
-      
-      await audio.play();
-      
-    } catch (error) {
-      console.error('Erro ao reproduzir áudio:', error);
-      setIsPlaying(false);
     }
-  };
-
-  // Atualizar a função sendMessage para texto
-  const sendMessage = async () => {
-    if (!currentInput.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: currentInput,
-      timestamp: new Date(),
-      isVoice: false
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    const messageToSend = currentInput;
-    setCurrentInput('');
     
-    await sendMessageToAI(messageToSend);
-  };
-
-  const resetInterview = () => {
     setSelectedScenario(null);
-    setMessages([]);
-    setCurrentInput('');
     setCurrentQuestionIndex(0);
     setInterviewStarted(false);
-    
-    // Parar qualquer reprodução de áudio
-    stopAudio();
+    setCurrentSessionId(null);
   };
 
   // Show loading state
@@ -637,227 +281,20 @@ export default function Treinamento() {
     return (
       <SubscriptionGuard>
         <Layout>
-          <div className="min-h-screen bg-gray-50 py-8">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            {/* Header */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {selectedScenario.name}
-                  </h1>
-                  <p className="text-gray-600 mt-1">
-                    Pergunta {currentQuestionIndex + 1} de {selectedScenario.questions[language].length}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-4">
-                  {/* Controles de idioma */}
-                  <div className="flex bg-gray-100 rounded-lg p-1">
-                    <button
-                      onClick={() => setLanguage('pt')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        language === 'pt' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                      }`}
-                    >
-                      🇧🇷 PT
-                    </button>
-                    <button
-                      onClick={() => setLanguage('en')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        language === 'en' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                      }`}
-                    >
-                      🇺🇸 EN
-                    </button>
-                  </div>
-                  
-                  {/* Controles de modo */}
-                  <div className="flex bg-gray-100 rounded-lg p-1">
-                    <button
-                      onClick={() => setInteractionMode('text')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        interactionMode === 'text' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                      }`}
-                    >
-                      ✍️ Texto
-                    </button>
-                    <button
-                      onClick={() => setInteractionMode('voice')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        interactionMode === 'voice' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                      }`}
-                    >
-                      🎤 Voz
-                    </button>
-                  </div>
-                  
-                  <Button variant="outline" onClick={resetInterview}>
-                    Finalizar Treino
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="mt-4">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${((currentQuestionIndex + 1) / selectedScenario.questions[language].length) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Chat Interface */}
-            <div className="bg-white rounded-lg shadow-sm">
-              {/* Messages */}
-              <div className="h-96 overflow-y-auto p-6 space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : message.role === 'system'
-                          ? 'bg-yellow-100 text-yellow-800 text-sm'
-                          : message.isThinking
-                          ? 'bg-gray-200 text-gray-600 italic'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      {message.role === 'ai' && !message.isThinking && (
-                        <div className="flex items-center mb-1">
-                          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center mr-2">
-                            <span className="text-white text-xs font-bold">CO</span>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {language === 'pt' ? 'Oficial Consular' : 'Consular Officer'}
-                          </span>
-                          {message.audioData && (
-                            <button
-                              onClick={() => isPlaying ? stopAudio() : playAudioFromBase64(message.audioData!)}
-                              className="ml-2 text-blue-600 hover:text-blue-800"
-                              disabled={isLoading}
-                            >
-                              {isPlaying ? '⏹️' : '🔊'}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      
-                      {message.isThinking && (
-                        <div className="flex items-center mb-1">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                          <span className="text-xs text-gray-500">
-                            {language === 'pt' ? 'Oficial Consular' : 'Consular Officer'}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {message.role === 'user' && message.isVoice && (
-                        <div className="flex items-center mb-1">
-                          <span className="text-xs opacity-75">🎤 Mensagem de voz</span>
-                        </div>
-                      )}
-                      
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                    </div>
-                  </div>
-                ))}
-                
-                {isLoading && interactionMode === 'text' && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                        {language === 'pt' ? 'Oficial Consular está digitando...' : 'Consular Officer is typing...'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="border-t p-4">
-                {interactionMode === 'text' ? (
-                  <div className="flex space-x-4">
-                    <input
-                      type="text"
-                      value={currentInput}
-                      onChange={(e) => setCurrentInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                      placeholder={language === 'pt' 
-                        ? "Digite sua resposta..." 
-                        : "Type your answer..."
-                      }
-                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                      disabled={isLoading}
-                    />
-                    <Button 
-                      onClick={sendMessage} 
-                      disabled={!currentInput.trim() || isLoading}
-                    >
-                      {language === 'pt' ? 'Enviar' : 'Send'}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col space-y-4">
-                    {currentInput && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-2">
-                          {language === 'pt' ? 'Texto transcrito:' : 'Transcribed text:'}
-                        </p>
-                        <p className="text-gray-900">{currentInput}</p>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-1 flex items-center justify-center">
-                        {!isRecording ? (
-                          <Button
-                            onClick={startRecording}
-                            className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full"
-                            disabled={isLoading}
-                          >
-                            🎤 {language === 'pt' ? 'Pressione para Falar' : 'Press to Speak'}
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={stopRecording}
-                            className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full animate-pulse"
-                          >
-                            ⏹️ {language === 'pt' ? 'Parar Gravação' : 'Stop Recording'}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {currentInput && (
-                        <Button 
-                          onClick={sendMessage} 
-                          disabled={isLoading}
-                        >
-                          {language === 'pt' ? 'Enviar' : 'Send'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="mt-2 text-xs text-gray-500">
-                  💡 {language === 'pt' 
-                    ? 'Dica: Responda como se estivesse em uma entrevista real. Seja claro, conciso e honesto.'
-                    : 'Tip: Answer as if you were in a real interview. Be clear, concise and honest.'
-                  }
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Layout>
+          <RealtimeTraining
+            scenario={selectedScenario}
+            language={language}
+            interactionMode={interactionMode}
+            currentQuestionIndex={currentQuestionIndex}
+            currentSessionId={currentSessionId}
+            onMessageSaved={saveMessageToSession}
+            onQuestionIndexChange={setCurrentQuestionIndex}
+            onLanguageChange={setLanguage}
+            onInteractionModeChange={setInteractionMode}
+            onFinishTraining={resetInterview}
+            isSavingSession={isSavingSession}
+          />
+        </Layout>
       </SubscriptionGuard>
     );
   }
@@ -910,7 +347,7 @@ export default function Treinamento() {
                       interactionMode === 'text' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
                     }`}
                   >
-                    ✍️ Texto
+                    📝 Texto
                   </button>
                   <button
                     onClick={() => setInteractionMode('voice')}
@@ -919,6 +356,14 @@ export default function Treinamento() {
                     }`}
                   >
                     🎤 Voz
+                  </button>
+                  <button
+                    onClick={() => setInteractionMode('realtime')}
+                    className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                      interactionMode === 'realtime' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
+                    }`}
+                  >
+                    ⚡ Tempo Real
                   </button>
                 </div>
               </div>
@@ -962,10 +407,10 @@ export default function Treinamento() {
               return (
                 <div
                   key={scenario.id}
-                  className={`bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer ${
-                    isRecommended ? 'ring-2 ring-blue-500' : ''
-                  }`}
-                  onClick={() => startInterview(scenario)}
+                  className={`bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow ${
+                    isSavingSession ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  } ${isRecommended ? 'ring-2 ring-blue-500' : ''}`}
+                  onClick={() => !isSavingSession && startInterview(scenario)}
                 >
                   {isRecommended && (
                     <div className="bg-blue-500 text-white px-4 py-2 text-sm font-medium">
