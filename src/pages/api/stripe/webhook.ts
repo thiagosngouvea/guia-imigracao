@@ -86,9 +86,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  if (!invoice.subscription) return;
+  if (!(invoice as any).subscription) return;
   
-  const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+  const subscription = await stripe.subscriptions.retrieve((invoice as any).subscription as string);
   const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
   
   const userId = customer.metadata?.firebaseUid;
@@ -98,9 +98,9 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  if (!invoice.subscription) return;
+  if (!(invoice as any).subscription) return;
   
-  const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+  const subscription = await stripe.subscriptions.retrieve((invoice as any).subscription as string);
   const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
   
   const userId = customer.metadata?.firebaseUid;
@@ -144,7 +144,7 @@ async function updateUserSubscription(userId: string, subscription: Stripe.Subsc
   await updateDoc(doc(db, 'users', userId), {
     subscriptionId: subscription.id,
     subscriptionStatus: subscription.status,
-    subscriptionEndDate: new Date(subscription.current_period_end * 1000),
+    subscriptionEndDate: new Date((subscription as any).current_period_end * 1000),
     planType,
     updatedAt: serverTimestamp(),
   });
