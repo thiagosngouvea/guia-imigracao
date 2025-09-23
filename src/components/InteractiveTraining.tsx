@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './ui/Button';
-import { useRealtimeChat } from '../hooks/useRealtimeChat';
 
 interface Message {
   id: string;
@@ -24,7 +23,7 @@ interface InterviewScenario {
   };
 }
 
-type InteractionMode = 'text' | 'voice' | 'realtime';
+type InteractionMode = 'text' | 'voice';
 
 interface InteractiveTrainingProps {
   scenario: InterviewScenario;
@@ -54,102 +53,14 @@ export function InteractiveTraining({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Hook para WebSocket Realtime (apenas quando necessário)
-  const {
-    isConnected: isRealtimeConnected,
-    isConnecting: isRealtimeConnecting,
-    connect: connectRealtime,
-    disconnect: disconnectRealtime,
-    sendTextMessage: sendRealtimeText,
-    sendAudio: sendRealtimeAudio,
-    commitAudio: commitRealtimeAudio
-  } = useRealtimeChat({
-    scenario,
-    language,
-    questionIndex: currentQuestionIndex,
-    onMessage: handleRealtimeMessage,
-    onAudioReceived: handleRealtimeAudio,
-    onTranscriptionReceived: handleRealtimeTranscription
-  });
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Conectar/desconectar realtime baseado no modo
-  useEffect(() => {
-    if (interactionMode === 'realtime') {
-      connectRealtime();
-    } else {
-      disconnectRealtime();
-    }
-    
-    return () => {
-      disconnectRealtime();
-    };
-  }, [interactionMode, connectRealtime, disconnectRealtime]);
 
-  // Handlers para WebSocket Realtime
-  function handleRealtimeMessage(message: any) {
-    console.log('Realtime message:', message);
-    
-    if (message.type === 'text_delta') {
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.role === 'ai' && lastMessage.isThinking) {
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...lastMessage,
-              content: (lastMessage.content || '') + message.content,
-              isThinking: false
-            }
-          ];
-        } else {
-          const newMessage: Message = {
-            id: Date.now().toString(),
-            role: 'ai',
-            content: message.content,
-            timestamp: new Date(),
-            isThinking: false
-          };
-          return [...prev, newMessage];
-        }
-      });
-    }
-    
-    if (message.type === 'response_done') {
-      setIsLoading(false);
-    }
-  }
-
-  function handleRealtimeAudio(audioData: ArrayBuffer) {
-    // Reproduzir áudio recebido
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    audioContext.decodeAudioData(audioData.slice(0), (buffer) => {
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-    });
-  }
-
-  function handleRealtimeTranscription(text: string) {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-      isVoice: true
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    onMessageSaved(userMessage);
-    setIsLoading(true);
-  }
-
-  // Enviar mensagem de texto (modo text e realtime)
+  // Enviar mensagem de texto
   const sendTextMessage = async () => {
     if (!currentInput.trim()) return;
 
@@ -168,13 +79,8 @@ export function InteractiveTraining({
 
     await onMessageSaved(userMessage);
 
-    if (interactionMode === 'realtime' && isRealtimeConnected) {
-      // Enviar via WebSocket
-      sendRealtimeText(messageToSend);
-    } else {
-      // Enviar via HTTP API tradicional
-      await sendHttpMessage(messageToSend);
-    }
+    // Enviar via HTTP API tradicional
+    await sendHttpMessage(messageToSend);
   };
 
   // Enviar mensagem via HTTP (fallback para texto e voz)
@@ -294,107 +200,73 @@ export function InteractiveTraining({
 
     setIsLoading(true);
     
-    try {
-      // Converter blob para base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
+    // Converter blob para base64
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
         const base64Audio = (reader.result as string).split(',')[1];
         
-        if (interactionMode === 'realtime' && isRealtimeConnected) {
-          // Enviar áudio via WebSocket
-          const arrayBuffer = await audioBlob.arrayBuffer();
-          sendRealtimeAudio(arrayBuffer);
-          commitRealtimeAudio();
-        } else {
-          // Transcrever áudio via HTTP
-          const transcriptionResponse = await fetch('/api/transcribe', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              audioBase64: base64Audio
-            }),
-          });
+        // Transcrever áudio via HTTP
+        const transcriptionResponse = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            audioBase64: base64Audio
+          }),
+        });
 
-          const transcriptionData = await transcriptionResponse.json();
-          
-          if (transcriptionData.transcription) {
-            // Criar mensagem do usuário com transcrição
-            const userMessage: Message = {
-              id: Date.now().toString(),
-              role: 'user',
-              content: transcriptionData.transcription,
-              timestamp: new Date(),
-              isVoice: true
-            };
+        const transcriptionData = await transcriptionResponse.json();
+        
+        if (transcriptionData.transcription) {
+          // Criar mensagem do usuário com transcrição
+          const userMessage: Message = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: transcriptionData.transcription,
+            timestamp: new Date(),
+            isVoice: true
+          };
 
-            setMessages(prev => [...prev, userMessage]);
-            await onMessageSaved(userMessage);
+          setMessages(prev => [...prev, userMessage]);
+          await onMessageSaved(userMessage);
 
-            // Enviar para processar resposta
-            await sendHttpMessage(transcriptionData.transcription);
-          }
+          // Enviar para processar resposta
+          await sendHttpMessage(transcriptionData.transcription);
         }
-      };
-      
-      reader.readAsDataURL(audioBlob);
-    } catch (error) {
-      console.error('Erro ao processar áudio:', error);
-      setIsLoading(false);
-    } finally {
-      setAudioBlob(null);
-    }
+      } catch (error) {
+        console.error('Erro ao processar áudio:', error);
+      } finally {
+        setIsLoading(false);
+        setAudioBlob(null);
+      }
+    };
+    
+    reader.readAsDataURL(audioBlob);
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
-      {/* Status da Conexão (apenas para modo realtime) */}
-      {interactionMode === 'realtime' && (
-        <div className="p-4 border-b bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${
-                isRealtimeConnected ? 'bg-green-500' : 
-                isRealtimeConnecting ? 'bg-yellow-500' : 'bg-red-500'
-              }`}></div>
-              <span className="text-sm text-gray-600">
-                {isRealtimeConnected 
-                  ? (language === 'pt' ? 'Conectado - Tempo Real' : 'Connected - Real Time')
-                  : isRealtimeConnecting 
-                  ? (language === 'pt' ? 'Conectando...' : 'Connecting...')
-                  : (language === 'pt' ? 'Desconectado' : 'Disconnected')
-                }
-              </span>
-            </div>
-            
-            {/* Botão para alternar modo */}
-            <div className="flex space-x-2">
-              <Button
-                variant={(interactionMode as InteractionMode) === 'text' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => onInteractionModeChange('text')}
-              >
-                📝 {language === 'pt' ? 'Texto' : 'Text'}
-              </Button>
-              <Button
-                variant={(interactionMode as InteractionMode) === 'voice' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => onInteractionModeChange('voice')}
-              >
-                🎤 {language === 'pt' ? 'Voz' : 'Voice'}
-              </Button>
-              <Button
-                variant={interactionMode === 'realtime' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => onInteractionModeChange('realtime')}
-              >
-                ⚡ {language === 'pt' ? 'Tempo Real' : 'Real Time'}
-              </Button>
-            </div>
-          </div>
+      {/* Botão para alternar modo */}
+      <div className="p-4 border-b bg-gray-50">
+        <div className="flex justify-center space-x-2">
+          <Button
+            variant={(interactionMode as InteractionMode) === 'text' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => onInteractionModeChange('text')}
+          >
+            📝 {language === 'pt' ? 'Texto' : 'Text'}
+          </Button>
+          <Button
+            variant={(interactionMode as InteractionMode) === 'voice' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => onInteractionModeChange('voice')}
+          >
+            🎤 {language === 'pt' ? 'Voz' : 'Voice'}
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* Lista de Mensagens */}
       <div className="h-96 overflow-y-auto p-4 space-y-4">
@@ -443,7 +315,7 @@ export function InteractiveTraining({
 
       {/* Input de Mensagem */}
       <div className="border-t p-4">
-        {interactionMode === 'text' || (interactionMode === 'realtime' && !isRealtimeConnected) ? (
+        {interactionMode === 'text' ? (
           <div className="flex space-x-4">
             <input
               type="text"
@@ -464,7 +336,7 @@ export function InteractiveTraining({
               {language === 'pt' ? 'Enviar' : 'Send'}
             </Button>
           </div>
-        ) : interactionMode === 'voice' ? (
+        ) : (
           <div className="space-y-4">
             {audioBlob ? (
               <div className="flex items-center space-x-4">
@@ -493,41 +365,17 @@ export function InteractiveTraining({
               </div>
             )}
           </div>
-        ) : (
-          // Modo realtime - interface simplificada
-          <div className="flex space-x-4">
-            <input
-              type="text"
-              value={currentInput}
-              onChange={(e) => setCurrentInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendTextMessage()}
-              placeholder={language === 'pt' 
-                ? "Digite ou fale sua resposta..." 
-                : "Type or speak your answer..."
-              }
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-              disabled={isLoading || !isRealtimeConnected}
-            />
-            <Button 
-              onClick={sendTextMessage} 
-              disabled={!currentInput.trim() || isLoading || !isRealtimeConnected}
-            >
-              {language === 'pt' ? 'Enviar' : 'Send'}
-            </Button>
-          </div>
         )}
         
         <div className="mt-2 text-xs text-gray-500">
           💡 {language === 'pt' 
-            ? `Modo ${interactionMode === 'text' ? 'Texto' : interactionMode === 'voice' ? 'Voz' : 'Tempo Real'}: ${
+            ? `Modo ${interactionMode === 'text' ? 'Texto' : 'Voz'}: ${
                 interactionMode === 'text' ? 'Digite suas respostas' :
-                interactionMode === 'voice' ? 'Grave suas respostas em áudio' :
-                'Conversação em tempo real com IA'
+                'Grave suas respostas em áudio'
               }`
-            : `${interactionMode === 'text' ? 'Text' : interactionMode === 'voice' ? 'Voice' : 'Real Time'} Mode: ${
+            : `${interactionMode === 'text' ? 'Text' : 'Voice'} Mode: ${
                 interactionMode === 'text' ? 'Type your answers' :
-                interactionMode === 'voice' ? 'Record your audio answers' :
-                'Real-time conversation with AI'
+                'Record your audio answers'
               }`
           }
         </div>

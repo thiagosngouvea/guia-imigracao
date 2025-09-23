@@ -52,7 +52,7 @@ export interface TrainingSession {
   visaType: string;
   difficulty: 'Iniciante' | 'Intermediário' | 'Avançado';
   language: 'pt' | 'en';
-  interactionMode: 'text' | 'voice' | 'realtime' | 'realtime';
+  interactionMode: 'text' | 'voice';
   startTime: any;
   endTime?: any;
   duration?: number; // em segundos
@@ -89,7 +89,7 @@ export const createTrainingSession = async (
   visaType: string,
   difficulty: 'Iniciante' | 'Intermediário' | 'Avançado',
   language: 'pt' | 'en',
-  interactionMode: 'text' | 'voice' | 'realtime'
+  interactionMode: 'text' | 'voice'
 ): Promise<string> => {
   try {
     const sessionData: Omit<TrainingSession, 'id'> = {

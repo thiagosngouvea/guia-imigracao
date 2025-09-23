@@ -4,7 +4,7 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
-import { RealtimeTraining } from '../components/RealtimeTraining';
+import { InteractiveTraining } from '../components/InteractiveTraining';
 import { 
   createTrainingSession, 
   addMessageToSession, 
@@ -35,7 +35,7 @@ interface InterviewScenario {
 }
 
 type Language = 'pt' | 'en';
-type InteractionMode = 'text' | 'voice' | 'realtime'; // Atualizado para incluir 'realtime'
+type InteractionMode = 'text' | 'voice';
 
 const scenarios: InterviewScenario[] = [
   {
@@ -134,7 +134,7 @@ export default function Treinamento() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [language, setLanguage] = useState<Language>('pt');
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>('text'); // Mudado padrão para 'text'
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('text');
   
   // Estado para controlar a sessão de treinamento
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -281,18 +281,14 @@ export default function Treinamento() {
     return (
       <SubscriptionGuard>
         <Layout>
-          <RealtimeTraining
+          <InteractiveTraining
             scenario={selectedScenario}
             language={language}
             interactionMode={interactionMode}
             currentQuestionIndex={currentQuestionIndex}
-            currentSessionId={currentSessionId}
             onMessageSaved={saveMessageToSession}
             onQuestionIndexChange={setCurrentQuestionIndex}
-            onLanguageChange={setLanguage}
             onInteractionModeChange={setInteractionMode}
-            onFinishTraining={resetInterview}
-            isSavingSession={isSavingSession}
           />
         </Layout>
       </SubscriptionGuard>
@@ -356,14 +352,6 @@ export default function Treinamento() {
                     }`}
                   >
                     🎤 Voz
-                  </button>
-                  <button
-                    onClick={() => setInteractionMode('realtime')}
-                    className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                      interactionMode === 'realtime' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                    }`}
-                  >
-                    ⚡ Tempo Real
                   </button>
                 </div>
               </div>
