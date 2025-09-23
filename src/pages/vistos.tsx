@@ -203,6 +203,45 @@ const visaTypes: VisaType[] = [
       'Documentação extensa necessária',
       'Limitado a área de especialização'
     ]
+  },
+  {
+    id: 'eb2-niw',
+    name: 'EB2 NIW - National Interest Waiver',
+    category: 'Imigrante',
+    description: 'Green card para profissionais com trabalho de interesse nacional, sem necessidade de empregador patrocinador.',
+    duration: 'Residência permanente (Green Card)',
+    requirements: [
+      'Graduação avançada ou experiência equivalente',
+      'Trabalho de mérito substancial e importância nacional',
+      'Estar bem posicionado para avançar a área',
+      'Benefício aos EUA justifica dispensa do PERM',
+      'Evidências de reconhecimento na área',
+      'Publicações, citações ou prêmios relevantes'
+    ],
+    process: [
+      'Reunir evidências dos três prongs NIW',
+      'Preparar petição I-140 detalhada',
+      'Submeter petição ao USCIS',
+      'Aguardar aprovação (8-12 meses)',
+      'Aplicar para ajuste de status ou visto de imigrante',
+      'Receber green card condicional ou definitivo'
+    ],
+    fees: '$700 USD (I-140) + $220 USD (biometria) + taxas de ajuste',
+    processingTime: '8-12 meses para I-140 + 6-12 meses para ajuste',
+    advantages: [
+      'Não precisa de empregador patrocinador',
+      'Residência permanente imediata',
+      'Família incluída no processo',
+      'Flexibilidade para mudar de emprego',
+      'Caminho direto para cidadania'
+    ],
+    disadvantages: [
+      'Critérios muito específicos (3 prongs)',
+      'Processo longo e complexo',
+      'Alta taxa de negação se mal preparado',
+      'Necessidade de evidências substanciais',
+      'Competição com outros casos similares'
+    ]
   }
 ];
 
@@ -257,7 +296,8 @@ export default function Vistos() {
         'f1': 'F1',
         'h1b': 'H1B',
         'eb5': 'EB5',
-        'o1': 'O1'
+        'o1': 'O1',
+        'eb2-niw': 'EB2 NIW'
       };
 
       const mappedVisaId = visaMapping[visaId] || visaId;
@@ -295,7 +335,8 @@ export default function Vistos() {
                          selectedVisa.id === 'f1' && currentVisa === 'F1' ||
                          selectedVisa.id === 'h1b' && currentVisa === 'H1B' ||
                          selectedVisa.id === 'eb5' && currentVisa === 'EB5' ||
-                         selectedVisa.id === 'o1' && currentVisa === 'O1';
+                         selectedVisa.id === 'o1' && currentVisa === 'O1' ||
+                         selectedVisa.id === 'eb2-niw' && currentVisa === 'EB2 NIW';
 
     return (
       <Layout>
@@ -511,7 +552,8 @@ export default function Vistos() {
                                    visa.id === 'f1' && currentVisa === 'F1' ||
                                    visa.id === 'h1b' && currentVisa === 'H1B' ||
                                    visa.id === 'eb5' && currentVisa === 'EB5' ||
-                                   visa.id === 'o1' && currentVisa === 'O1';
+                                   visa.id === 'o1' && currentVisa === 'O1' ||
+                                   visa.id === 'eb2-niw' && currentVisa === 'EB2 NIW';
               
               return (
                 <div

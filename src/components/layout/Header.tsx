@@ -38,6 +38,9 @@ export function Header() {
                 <Link href="/treinamento" className="text-gray-600 hover:text-gray-900">
                   Treino AI
                 </Link>
+                <Link href="/eb2-niw" className="text-gray-600 hover:text-gray-900">
+                  EB2 NIW
+                </Link>
                 <Link href="/vistos" className="text-gray-600 hover:text-gray-900">
                   Tipos de Visto
                 </Link>
