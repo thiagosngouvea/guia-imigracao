@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/Button';
 
 interface CaseAnalysis {
@@ -37,7 +37,6 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
     prong3: ''
   });
   
-  const [masterFile, setMasterFile] = useState<File | null>(null);
   const [analysisRange, setAnalysisRange] = useState({ start: 1, end: 10 });
   const [results, setResults] = useState<CaseAnalysis[]>([]);
   const [progress, setProgress] = useState<AnalysisProgress>({
@@ -49,24 +48,46 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [masterFileInfo, setMasterFileInfo] = useState<{totalLines: number, loaded: boolean}>({
+    totalLines: 0,
+    loaded: false
+  });
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setMasterFile(file);
-      setError(null);
+  // Carregar informações do Master_file do servidor ao montar o componente
+  useEffect(() => {
+    loadMasterFileInfo();
+  }, []);
+
+  // Carregar informações do Master_file do servidor
+  const loadMasterFileInfo = async () => {
+    try {
+      const response = await fetch('/api/master-file-info');
+      if (response.ok) {
+        const data = await response.json();
+        setMasterFileInfo({
+          totalLines: data.totalLines,
+          loaded: true
+        });
+        // Atualizar range máximo baseado no arquivo
+        setAnalysisRange(prev => ({
+          ...prev,
+          end: Math.min(prev.end, data.totalLines)
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar info do Master_file:', error);
+      setError('Erro ao carregar informações do arquivo de casos');
     }
   };
 
   const handleStartAnalysis = async () => {
-    if (!masterFile) {
-      setError('Por favor, faça upload do arquivo Master_file');
+    if (!userCase.prong1 || !userCase.prong2 || !userCase.prong3) {
+      setError('Por favor, preencha todos os 3 prongs do seu caso');
       return;
     }
 
-    if (!userCase.prong1 || !userCase.prong2 || !userCase.prong3) {
-      setError('Por favor, preencha todos os 3 prongs do seu caso');
+    if (analysisRange.start < 1 || analysisRange.end > masterFileInfo.totalLines) {
+      setError(`Range inválido. O arquivo tem ${masterFileInfo.totalLines} linhas.`);
       return;
     }
 
@@ -81,17 +102,13 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
     });
 
     try {
-      // Ler arquivo master
-      const masterFileContent = await masterFile.text();
-      
-      // Fazer análise via API
+      // Fazer análise via API (arquivo será lido no servidor)
       const response = await fetch('/api/eb2-niw-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          masterFileContent,
           userCase,
           startLine: analysisRange.start,
           endLine: analysisRange.end
@@ -247,23 +264,38 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
           </div>
         </div>
 
-        {/* File Upload */}
+        {/* Master File Info */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload do arquivo Master_file (lista de links dos PDFs)
+            Arquivo Master_file (base de dados de casos USCIS)
           </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".txt"
-            onChange={handleFileUpload}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          {masterFile && (
-            <p className="text-sm text-green-600 mt-2">
-              ✓ Arquivo carregado: {masterFile.name}
-            </p>
-          )}
+          <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+            {masterFileInfo.loaded ? (
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    ✓ Arquivo carregado do servidor
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Total de casos disponíveis: {masterFileInfo.totalLines.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Fonte: Decisões oficiais do USCIS (casos negados)
+                  </p>
+                </div>
+                <div className="text-green-500">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <p className="text-sm text-gray-600">Carregando informações do arquivo...</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Analysis Range */}
@@ -275,10 +307,17 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
             <input
               type="number"
               min="1"
+              max={masterFileInfo.totalLines}
               value={analysisRange.start}
               onChange={(e) => setAnalysisRange(prev => ({ ...prev, start: parseInt(e.target.value) || 1 }))}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={!masterFileInfo.loaded}
             />
+            {masterFileInfo.loaded && (
+              <p className="text-xs text-gray-500 mt-1">
+                Mín: 1, Máx: {masterFileInfo.totalLines.toLocaleString()}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -287,10 +326,17 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
             <input
               type="number"
               min="1"
+              max={masterFileInfo.totalLines}
               value={analysisRange.end}
               onChange={(e) => setAnalysisRange(prev => ({ ...prev, end: parseInt(e.target.value) || 10 }))}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={!masterFileInfo.loaded}
             />
+            {masterFileInfo.loaded && (
+              <p className="text-xs text-gray-500 mt-1">
+                Casos a analisar: {(analysisRange.end - analysisRange.start + 1).toLocaleString()}
+              </p>
+            )}
           </div>
         </div>
 
@@ -304,10 +350,10 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
         {/* Start Analysis Button */}
         <Button
           onClick={handleStartAnalysis}
-          disabled={isAnalyzing || !masterFile || !userCase.prong1 || !userCase.prong2 || !userCase.prong3}
+          disabled={isAnalyzing || !masterFileInfo.loaded || !userCase.prong1 || !userCase.prong2 || !userCase.prong3}
           className="w-full py-4 text-lg"
         >
-          {isAnalyzing ? 'Analisando...' : 'Iniciar Análise'}
+          {isAnalyzing ? 'Analisando...' : !masterFileInfo.loaded ? 'Carregando arquivo...' : 'Iniciar Análise'}
         </Button>
       </div>
 

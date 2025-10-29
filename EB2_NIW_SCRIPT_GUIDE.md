@@ -140,18 +140,21 @@ A taxa de sucesso é calculada baseada na porcentagem de casos onde seu caso foi
 ### Vantagens da Integração Web
 
 1. **Interface Amigável**: Não precisa configurar Python
-2. **Streaming em Tempo Real**: Acompanhe o progresso da análise
-3. **Visualização Avançada**: Gráficos e tabelas interativas
-4. **Armazenamento**: Resultados salvos automaticamente
-5. **Segurança**: Chaves API gerenciadas pelo sistema
+2. **Base de Dados Integrada**: Arquivo Master_file já disponível no servidor
+3. **Streaming em Tempo Real**: Acompanhe o progresso da análise
+4. **Visualização Avançada**: Gráficos e tabelas interativas
+5. **Armazenamento**: Resultados salvos automaticamente
+6. **Segurança**: Chaves API gerenciadas pelo sistema
 
 ### Acesso ao Módulo
 
 1. Faça login na plataforma MoveEasy
 2. Navegue para "EB2 NIW" no menu principal
-3. Preencha os dados do seu caso
-4. Faça upload do arquivo Master_file
+3. Preencha os dados do seu caso (3 prongs)
+4. Defina o range de análise (casos a processar)
 5. Inicie a análise
+
+**Nota**: O arquivo Master_file com mais de 7.800 casos está disponível automaticamente no servidor, eliminando a necessidade de upload manual.
 
 ## Melhores Práticas
 

@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import fs from 'fs';
+import path from 'path';
 
 interface UserCase {
   prong1: string;
@@ -26,19 +28,25 @@ const openai = new OpenAI({
 // Função para extrair texto de PDF via URL
 async function extractTextFromUrl(url: string): Promise<string> {
   try {
+    // Criar AbortController para timeout manual
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     const response = await fetch(url, { 
-      timeout: 20000,
+      signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.log(`Failed to fetch ${url}: ${response.status}`);
       return '';
     }
 
-    const buffer = await response.arrayBuffer();
+    await response.arrayBuffer();
     
     // Para simplificar, vamos assumir que temos uma biblioteca para extrair texto de PDF
     // Em produção, você usaria uma biblioteca como pdf-parse ou similar
@@ -174,15 +182,7 @@ If No, just respond with: NIW_CASE: No
   }
 }
 
-function compareProng(prongReason: string): string {
-  const reasonLower = prongReason.toLowerCase();
-  if (['weak', 'missing', 'lack', 'insufficient', 'no'].some(word => reasonLower.includes(word))) {
-    return 'Your case stronger';
-  } else if (['strong', 'good', 'adequate'].some(word => reasonLower.includes(word))) {
-    return 'Mixed';
-  }
-  return 'Mixed';
-}
+// Função removida - não está sendo utilizada
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -190,11 +190,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { masterFileContent, userCase, startLine, endLine } = req.body;
+    const { userCase, startLine, endLine } = req.body;
 
-    if (!masterFileContent || !userCase || !startLine || !endLine) {
+    if (!userCase || !startLine || !endLine) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // Read Master_file from server
+    const masterFilePath = path.join(process.cwd(), 'src', 'utils', 'Master_file');
+    
+    if (!fs.existsSync(masterFilePath)) {
+      return res.status(404).json({ error: 'Master_file not found on server' });
+    }
+
+    const masterFileContent = fs.readFileSync(masterFilePath, 'utf-8');
 
     // Parse master file content
     const allLinks = masterFileContent

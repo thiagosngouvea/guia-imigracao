@@ -194,9 +194,9 @@ export default function EB2NIWPage() {
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <span className="text-xl">2️⃣</span>
                   </div>
-                  <h4 className="font-bold mb-2">Upload do Arquivo</h4>
+                  <h4 className="font-bold mb-2">Base de Dados</h4>
                   <p className="text-blue-100 text-sm">
-                    Carregue o arquivo com links dos PDFs dos casos negados
+                    Sistema acessa automaticamente nossa base com casos negados do USCIS
                   </p>
                 </div>
                 
