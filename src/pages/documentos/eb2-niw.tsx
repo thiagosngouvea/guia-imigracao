@@ -430,15 +430,15 @@ export default function EB2NIWDocuments() {
                 {expandedCategory === category.id && (
                   <div className="border-t border-gray-200 p-6 bg-gray-50/50">
                     <Checklist
-                      items={category.documents.map(doc => ({
+                      documents={category.documents.map(doc => ({
                         id: doc.id,
-                        text: doc.name,
+                        name: doc.name,
                         description: doc.description,
                         required: doc.required,
-                        tips: doc.tips,
-                        checked: checkedItems[doc.id] || false
+                        category: 'professional' as const,
+                        howToObtain: doc.tips || ['Consulte especialista para orientações específicas'],
+                        tips: doc.tips
                       }))}
-                      onItemCheck={handleItemCheck}
                     />
                   </div>
                 )}
