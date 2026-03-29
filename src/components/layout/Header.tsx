@@ -5,6 +5,9 @@ import { useSubscription } from '../../hooks/useSubscription';
 
 export function Header() {
   const { user, userProfile, logout } = useAuth();
+  console.log('userProfile', userProfile);
+  console.log('user', user);
+
   const { hasActiveSubscription, isAdmin, subscriptionStatus } = useSubscription();
 
   return (
@@ -82,7 +85,7 @@ export function Header() {
                     )}
                   </div>
                 )}
-                
+
                 <span className="text-sm text-gray-700">
                   Olá, {userProfile?.name || user.displayName || 'Usuário'}
                   {isAdmin && <span className="ml-1 text-blue-600 font-medium">(Admin)</span>}

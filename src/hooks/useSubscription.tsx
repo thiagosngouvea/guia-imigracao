@@ -27,7 +27,13 @@ export const useSubscription = (): UseSubscriptionReturn => {
     userProfile?.subscriptionEndDate
   );
 
-  const isAdmin = userProfile?.isAdmin || false;
+  // Admin se qualquer campo indicar privilégio: isAdmin, role admin/super_admin, ou isPremium
+  const isAdmin =
+    userProfile?.isAdmin === true ||
+    userProfile?.isPremium === true ||
+    userProfile?.role === 'admin' ||
+    userProfile?.role === 'super_admin';
+
   const canAccessSystem = isAdmin || hasActiveSubscription;
 
   const subscriptionEndDate = userProfile?.subscriptionEndDate?.toDate

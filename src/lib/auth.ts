@@ -18,24 +18,48 @@ import {
 export interface UserProfile {
   uid: string;
   email: string;
-  name: string;
+  // Compatibilidade: 'name' (web antigo) e 'displayName' (app)
+  name?: string;
+  displayName?: string;
+  fullName?: string; // Do questionário
   createdAt: any;
-  lastLoginAt: any;
+  lastLoginAt?: any;
+  photoURL?: string;
+
+  // Questionário e análise (schema do App)
+  hasCompletedQuestionnaire?: boolean;
+  age?: number;
+  nationality?: string;
+  occupation?: string;
+  immigrationGoal?: string;
+  questionnaireCompletedAt?: any;
+
+  // Trilha selecionada (schema do App)
+  selectedVisaPath?: {
+    visaType: string;
+    country: string;
+    selectedAt: any;
+  };
+
+  // Legado - quiz simples (web antigo)
   recommendedVisa?: string;
-  selectedVisa?: string; // Novo campo para o visto escolhido pelo usuário
+  selectedVisa?: string;
   completedQuiz?: boolean;
   interviewsPracticed?: number;
-  photoURL?: string;
   quizAnswers?: Record<string, string>;
   quizScores?: Record<string, number>;
-  // Subscription fields
+
+  // Subscription / Premium
+  isPremium?: boolean;
   isAdmin?: boolean;
+  role?: 'user' | 'admin' | 'super_admin';
   stripeCustomerId?: string;
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing';
   subscriptionEndDate?: any;
   planType?: 'monthly' | 'yearly';
 }
+
   
   export interface AuthError {
     code: string;
@@ -51,13 +75,16 @@ export interface UserProfile {
       // Update the user's display name
       await updateProfile(user, { displayName: name });
   
-      // Create user profile in Firestore
+      // Create user profile in Firestore (schema compatível com App)
       const userProfile: UserProfile = {
         uid: user.uid,
         email: user.email!,
         name: name,
+        displayName: name,
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
+        hasCompletedQuestionnaire: false,
+        isPremium: false,
         completedQuiz: false,
         interviewsPracticed: 0,
       };
