@@ -23,6 +23,8 @@ import {
   HiArrowRight,
   HiCalendarDays,
   HiGlobeAmericas,
+  HiMiniArrowTrendingUp,
+  HiMiniClock,
 } from 'react-icons/hi2';
 import {
   MdOutlineVerified,
@@ -55,7 +57,6 @@ interface RecentActivity {
   title: string;
   description: string;
   date: string;
-  icon: string;
 }
 
 interface UpcomingTask {
@@ -74,22 +75,17 @@ export default function Dashboard() {
   const [trainingStats, setTrainingStats] = useState<TrainingStats | null>(null);
   const [loadingTrainingData, setLoadingTrainingData] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
-  // Carregar dados de treinamento
   useEffect(() => {
     const loadTrainingData = async () => {
       if (!user) return;
-
       setLoadingTrainingData(true);
       try {
         const [sessions, stats] = await Promise.all([
-          getUserTrainingSessions(user.uid, 5), // Últimas 5 sessões
+          getUserTrainingSessions(user.uid, 5),
           getUserTrainingStats(user.uid)
         ]);
-
         setTrainingSessions(sessions);
         setTrainingStats(stats);
       } catch (error) {
@@ -98,25 +94,17 @@ export default function Dashboard() {
         setLoadingTrainingData(false);
       }
     };
-
-    if (user && isClient) {
-      loadTrainingData();
-    }
+    if (user && isClient) loadTrainingData();
   }, [user, isClient]);
 
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
+    if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  // Calculate days since user joined
   const daysSinceJoined = userProfile?.createdAt
     ? Math.floor((new Date().getTime() - new Date(userProfile.createdAt.toDate()).getTime()) / (1000 * 3600 * 24))
     : 0;
 
-  // Calculate progress percentage
   const calculateProgress = () => {
     let progress = 0;
     if (userProfile?.completedQuiz) progress += 30;
@@ -131,7 +119,7 @@ export default function Dashboard() {
       id: 'visa-path',
       title: 'Escolher Trilha',
       description: 'Veja os vistos e escolha sua trilha de imigração',
-      icon: <HiMap className="w-8 h-8" />,
+      icon: <HiMap className="w-5 h-5" />,
       href: '/visa-path',
       color: 'blue',
       completed: !!userProfile?.selectedVisaPath,
@@ -140,7 +128,7 @@ export default function Dashboard() {
       id: 'minha-trilha',
       title: 'Minha Trilha',
       description: 'Acompanhe o progresso da sua trilha de visto',
-      icon: <HiListBullet className="w-8 h-8" />,
+      icon: <HiListBullet className="w-5 h-5" />,
       href: '/minha-trilha',
       color: 'green',
       completed: false,
@@ -149,7 +137,7 @@ export default function Dashboard() {
       id: 'questionnaire',
       title: 'Questionário de Visto',
       description: 'Descubra qual visto é ideal para você',
-      icon: <HiQuestionMarkCircle className="w-8 h-8" />,
+      icon: <HiQuestionMarkCircle className="w-5 h-5" />,
       href: '/questionario',
       color: 'purple',
       completed: userProfile?.hasCompletedQuestionnaire || userProfile?.completedQuiz || false,
@@ -158,7 +146,7 @@ export default function Dashboard() {
       id: 'training',
       title: 'Treino com IA',
       description: 'Pratique entrevistas de visto com inteligência artificial',
-      icon: <HiAcademicCap className="w-8 h-8" />,
+      icon: <HiAcademicCap className="w-5 h-5" />,
       href: '/treinamento',
       color: 'purple',
       completed: (userProfile?.interviewsPracticed || 0) > 0,
@@ -167,573 +155,486 @@ export default function Dashboard() {
       id: 'ds160-helper',
       title: 'Assistente DS-160',
       description: 'Auxílio para preencher o formulário DS-160',
-      icon: <HiDocumentText className="w-8 h-8" />,
+      icon: <HiDocumentText className="w-5 h-5" />,
       href: '/ds160',
       color: 'blue',
       completed: false,
     },
   ];
 
-  // Generate recent activities based on user data
   const generateRecentActivities = (): RecentActivity[] => {
     const activities: RecentActivity[] = [];
-
     if (userProfile?.completedQuiz && userProfile?.recommendedVisa) {
       activities.push({
-        id: 1,
-        type: 'quiz',
-        title: 'Questionário de Visto Completado',
+        id: 1, type: 'quiz',
+        title: 'Questionário Completado',
         description: `Visto recomendado: ${userProfile.recommendedVisa}`,
         date: userProfile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        icon: '✅'
       });
     }
-
     if (userProfile?.interviewsPracticed && userProfile.interviewsPracticed > 0) {
       activities.push({
-        id: 2,
-        type: 'training',
+        id: 2, type: 'training',
         title: 'Treino de Entrevista',
         description: `${userProfile.interviewsPracticed} sessões de treino completadas`,
         date: userProfile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        icon: '🎯'
       });
     }
-
     if (activities.length === 0) {
       activities.push({
-        id: 3,
-        type: 'info',
-        title: 'Bem-vindo a MoveEasy!',
+        id: 3, type: 'info',
+        title: 'Bem-vindo à MoveEasy!',
         description: 'Comece preenchendo o questionário para descobrir seu visto ideal',
         date: userProfile?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        icon: '🎉'
       });
     }
-
     return activities;
   };
 
   const generateUpcomingTasks = (): UpcomingTask[] => {
     const tasks: UpcomingTask[] = [];
-
     if (!userProfile?.completedQuiz) {
-      tasks.push({
-        id: 1,
-        title: 'Complete o questionário',
-        description: 'Descubra qual visto é ideal para seu perfil',
-        priority: 'high',
-        action: 'Começar Agora'
-      });
+      tasks.push({ id: 1, title: 'Complete o questionário', description: 'Descubra qual visto é ideal para seu perfil', priority: 'high', action: 'Começar Agora' });
     } else if ((userProfile?.interviewsPracticed || 0) === 0) {
-      // Se completou o quiz mas ainda não praticou, priorizar o treinamento
-      tasks.push({
-        id: 2,
-        title: 'Comece o treinamento de entrevista',
-        description: 'Agora que você descobriu seu visto ideal, pratique para a entrevista',
-        priority: 'high',
-        action: 'Iniciar Treinamento'
-      });
+      tasks.push({ id: 2, title: 'Comece o treinamento', description: 'Pratique para a entrevista de visto com IA', priority: 'high', action: 'Iniciar Treinamento' });
     }
-
     if ((userProfile?.interviewsPracticed || 0) > 0 && (userProfile?.interviewsPracticed || 0) < 3) {
-      tasks.push({
-        id: 3,
-        title: 'Continue praticando entrevistas',
-        description: 'Recomendamos pelo menos 3 sessões de treino',
-        priority: 'high',
-        action: 'Continuar Treino'
-      });
+      tasks.push({ id: 3, title: 'Continue praticando', description: 'Recomendamos pelo menos 3 sessões de treino', priority: 'high', action: 'Continuar Treino' });
     }
-
     if (userProfile?.recommendedVisa) {
-      tasks.push({
-        id: 4,
-        title: 'Revisar documentos necessários',
-        description: `Confira a lista de documentos para o visto ${userProfile.recommendedVisa}`,
-        priority: 'medium',
-        action: 'Ver Lista'
-      });
+      tasks.push({ id: 4, title: 'Revisar documentos', description: `Lista para o visto ${userProfile.recommendedVisa}`, priority: 'medium', action: 'Ver Lista' });
     }
-
     if (tasks.length < 3) {
-      tasks.push({
-        id: 5,
-        title: 'Agendar consulta com especialista',
-        description: 'Fale com um advogado de imigração',
-        priority: 'low',
-        action: 'Agendar'
-      });
+      tasks.push({ id: 5, title: 'Agendar consulta', description: 'Fale com um advogado de imigração', priority: 'low', action: 'Agendar' });
     }
-
     return tasks.slice(0, 3);
   };
 
-  // Função para obter o visto atual (escolhido pelo usuário ou recomendado)
-  const getCurrentVisa = () => {
-    return userProfile?.selectedVisa || userProfile?.recommendedVisa;
-  };
-
-  // Função para verificar se o usuário escolheu um visto diferente do recomendado
-  const hasCustomVisa = () => {
-    return userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
-  };
-
-  // Função para mapear nome do visto para ID usado na URL
+  const getCurrentVisa = () => userProfile?.selectedVisa || userProfile?.recommendedVisa;
+  const hasCustomVisa = () => userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
   const getVisaId = (visaName: string) => {
-    const visaMapping: Record<string, string> = {
-      'B1/B2': 'b1b2',
-      'F1': 'f1',
-      'H1B': 'h1b',
-      'EB5': 'eb5',
-      'O1': 'o1',
-      'EB2 NIW': 'eb2-niw'
-    };
-    return visaMapping[visaName] || visaName.toLowerCase();
+    const map: Record<string, string> = { 'B1/B2': 'b1b2', 'F1': 'f1', 'H1B': 'h1b', 'EB5': 'eb5', 'O1': 'o1', 'EB2 NIW': 'eb2-niw' };
+    return map[visaName] || visaName.toLowerCase();
   };
 
-  // Show loading state
   if (loading || !isClient) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gray-50 py-8">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Carregando seu dashboard...</p>
-              </div>
-            </div>
+        <div className="min-h-[80vh] flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-slate-500 text-sm">Carregando seu dashboard...</p>
           </div>
         </div>
       </Layout>
     );
   }
 
-  // Redirect if not authenticated (this shouldn't happen due to useEffect above)
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   const recentActivities = generateRecentActivities();
   const upcomingTasks = generateUpcomingTasks();
   const progress = calculateProgress();
   const currentVisa = getCurrentVisa();
+  const displayName = userProfile?.displayName || userProfile?.fullName || userProfile?.name || user.displayName || 'Usuário';
+
+  const colorMap = {
+    blue:   { icon: 'from-blue-500 to-blue-600',   border: 'border-blue-500',   text: 'text-blue-600',   bg: 'bg-blue-50' },
+    green:  { icon: 'from-emerald-500 to-green-600', border: 'border-emerald-500', text: 'text-emerald-600', bg: 'bg-emerald-50' },
+    purple: { icon: 'from-violet-500 to-indigo-600', border: 'border-violet-500', text: 'text-violet-600',  bg: 'bg-violet-50' },
+  };
 
   return (
     <SubscriptionGuard>
       <Layout>
-        <div className="min-h-screen bg-gray-50 py-8">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {/* Welcome Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">
-                Bem-vindo, {userProfile?.displayName || userProfile?.fullName || userProfile?.name || user.displayName || 'Usuário'}! 👋
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Aqui está um resumo do seu progresso na jornada para os EUA.
-              </p>
-            </div>
+        <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <MdOutlineVerified className="w-6 h-6 text-blue-600" style={{ width: 24, height: 24 }} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
-                      {hasCustomVisa() ? 'Visto Escolhido' : 'Visto Recomendado'}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {currentVisa || 'Pendente'}
-                    </p>
-                    {hasCustomVisa() && (
-                      <p className="text-xs text-blue-600">Personalizado por você</p>
-                    )}
-                  </div>
-                </div>
+          {/* ── Welcome ─────────────────────────────────────────── */}
+          <div className="mb-8 animate-fade-in">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1 tracking-wide uppercase">Dashboard</p>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                  Olá, {displayName.split(' ')[0]} 👋
+                </h1>
+                <p className="text-slate-500 mt-1.5 text-sm">
+                  Aqui está um resumo da sua jornada para os Estados Unidos.
+                </p>
               </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <HiTrophy className="w-6 h-6 text-green-600" style={{ width: 24, height: 24 }} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Treinos Realizados</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {trainingStats?.totalSessions || userProfile?.interviewsPracticed || 0}
-                    </p>
-                    {trainingStats?.completedSessions !== undefined && (
-                      <p className="text-xs text-green-600">
-                        {trainingStats.completedSessions} completos
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FiClock className="w-6 h-6 text-purple-600" style={{ width: 24, height: 24 }} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Dias na Plataforma</p>
-                    <p className="text-2xl font-bold text-gray-900">{daysSinceJoined}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <HiStar className="w-6 h-6 text-yellow-500" style={{ width: 24, height: 24 }} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Progresso</p>
-                    <p className="text-2xl font-bold text-gray-900">{progress}%</p>
-                  </div>
-                </div>
+              <div className="hidden sm:flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
+                <FiClock className="w-4 h-4" />
+                <span>{daysSinceJoined} dias na plataforma</span>
               </div>
             </div>
 
-            {/* Sua Trilha de Visto Banner */}
-            {userProfile?.selectedVisaPath ? (
-              <div className="mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-start gap-3">
-                    <HiMapPin className="w-5 h-5 mt-0.5 text-blue-200 shrink-0" />
-                    <div>
-                      <p className="text-blue-100 text-sm font-medium mb-1">Sua Trilha Ativa</p>
-                      <h2 className="text-2xl font-bold">{userProfile.selectedVisaPath.visaType}</h2>
-                      <div className="flex items-center gap-1.5 text-blue-100 text-sm mt-1">
-                        <HiGlobeAmericas className="w-4 h-4" />
-                        <span>{userProfile.selectedVisaPath.country}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Link href="/minha-trilha">
-                      <span className="bg-white text-blue-600 font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-50 transition cursor-pointer inline-flex items-center gap-1.5">
-                        Ver Progresso <HiArrowRight className="w-4 h-4" />
-                      </span>
-                    </Link>
-                  </div>
+            {/* Progress bar */}
+            <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Progresso geral</p>
+                  <p className="text-xs text-slate-500">Complete as etapas para avançar sua jornada</p>
                 </div>
+                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  {progress}%
+                </span>
               </div>
-            ) : (
-              <div className="mb-8 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-start gap-3">
-                    <HiMapPin className="w-5 h-5 mt-0.5 text-gray-400 shrink-0" />
-                    <div>
-                      <p className="text-gray-500 text-sm font-medium mb-1">Trilha de Visto</p>
-                      <h2 className="text-xl font-bold text-gray-700">Nenhuma trilha selecionada</h2>
-                      <p className="text-gray-500 text-sm mt-1">Complete o questionário e escolha sua trilha</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Link href="/questionario">
-                      <span className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-700 transition cursor-pointer inline-flex items-center gap-1.5">
-                        Começar Agora <HiArrowRight className="w-4 h-4" />
-                      </span>
-                    </Link>
-                  </div>
-                </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
-            )}
+            </div>
+          </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* ── Stats Cards ─────────────────────────────────────── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger-children">
+            {[
+              {
+                label: hasCustomVisa() ? 'Visto Escolhido' : 'Visto Recomendado',
+                value: currentVisa || 'Pendente',
+                sub: hasCustomVisa() ? 'Personalizado' : currentVisa ? 'Recomendado' : 'Faça o questionário',
+                icon: <MdOutlineVerified className="w-5 h-5" />,
+                iconBg: 'from-blue-500 to-blue-600',
+                valueCls: 'text-blue-600',
+              },
+              {
+                label: 'Treinos Realizados',
+                value: trainingStats?.totalSessions || userProfile?.interviewsPracticed || 0,
+                sub: trainingStats?.completedSessions ? `${trainingStats.completedSessions} completos` : 'Nenhum ainda',
+                icon: <HiTrophy className="w-5 h-5" />,
+                iconBg: 'from-emerald-500 to-green-600',
+                valueCls: 'text-emerald-600',
+              },
+              {
+                label: 'Dias na Plataforma',
+                value: daysSinceJoined,
+                sub: daysSinceJoined === 0 ? 'Hoje!' : daysSinceJoined === 1 ? 'Há 1 dia' : `Há ${daysSinceJoined} dias`,
+                icon: <HiMiniClock className="w-5 h-5" />,
+                iconBg: 'from-violet-500 to-indigo-600',
+                valueCls: 'text-violet-600',
+              },
+              {
+                label: 'Progresso',
+                value: `${progress}%`,
+                sub: progress >= 80 ? 'Quase lá!' : progress >= 50 ? 'Bom ritmo' : 'Continue avançando',
+                icon: <HiMiniArrowTrendingUp className="w-5 h-5" />,
+                iconBg: 'from-amber-400 to-orange-500',
+                valueCls: 'text-amber-600',
+              },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`p-2 rounded-xl bg-gradient-to-br ${stat.iconBg} text-white shadow-sm`}>
+                    {stat.icon}
+                  </div>
+                </div>
+                <p className={`text-2xl font-bold ${stat.valueCls} leading-none mb-1`}>{stat.value}</p>
+                <p className="text-xs font-medium text-slate-500">{stat.label}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Trilha Banner ────────────────────────────────────── */}
+          {userProfile?.selectedVisaPath ? (
+            <div className="mb-8 relative overflow-hidden bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 rounded-2xl p-6 text-white shadow-lg animate-fade-in">
+              {/* Background pattern */}
+              <div className="absolute inset-0 opacity-10" style={{
+                backgroundImage: 'radial-gradient(circle at 20% 50%, #3B82F6 0%, transparent 50%), radial-gradient(circle at 80% 20%, #6366F1 0%, transparent 40%)'
+              }} />
+              <div className="relative flex items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm shrink-0">
+                    <HiMapPin className="w-6 h-6 text-blue-300" />
+                  </div>
+                  <div>
+                    <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-1">Trilha Ativa</p>
+                    <h2 className="text-2xl font-bold">{userProfile.selectedVisaPath.visaType}</h2>
+                    <div className="flex items-center gap-1.5 text-slate-300 text-sm mt-1">
+                      <HiGlobeAmericas className="w-4 h-4" />
+                      <span>{userProfile.selectedVisaPath.country}</span>
+                    </div>
+                  </div>
+                </div>
+                <Link href="/minha-trilha">
+                  <span className="shrink-0 bg-white text-slate-900 font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-blue-50 transition-colors cursor-pointer inline-flex items-center gap-2">
+                    Ver Progresso <HiArrowRight className="w-4 h-4" />
+                  </span>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-8 border-2 border-dashed border-slate-200 rounded-2xl p-6 animate-fade-in">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-slate-100 rounded-xl shrink-0">
+                    <HiMapPin className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Trilha de Visto</p>
+                    <h2 className="text-lg font-bold text-slate-700">Nenhuma trilha selecionada</h2>
+                    <p className="text-slate-500 text-sm mt-1">Complete o questionário e escolha sua trilha de imigração</p>
+                  </div>
+                </div>
+                <Link href="/questionario">
+                  <span className="shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm hover:from-blue-700 hover:to-indigo-700 transition-all cursor-pointer inline-flex items-center gap-2 shadow-md shadow-blue-500/20">
+                    Começar Agora <HiArrowRight className="w-4 h-4" />
+                  </span>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* ── Main content + Sidebar ───────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            {/* Main column */}
+            <div className="lg:col-span-2 space-y-8">
+
               {/* Quick Actions */}
-              <div className="lg:col-span-2">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Ações Rápidas</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-                  {quickActions.map((action) => (
-                    <Link key={action.id} href={action.href} className="h-full">
-                      <div className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-5 cursor-pointer border-l-4 flex flex-col h-full min-h-[9rem] ${action.color === 'blue' ? 'border-blue-500' :
-                        action.color === 'green' ? 'border-green-500' :
-                          'border-purple-500'
-                        }`}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className={`p-2 rounded-lg ${action.color === 'blue' ? 'bg-blue-100 text-blue-600' :
-                            action.color === 'green' ? 'bg-green-100 text-green-600' :
-                              'bg-purple-100 text-purple-600'
-                            }`}>
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-slate-900">Ações Rápidas</h2>
+                  <span className="text-xs text-slate-400">{quickActions.filter(a => a.completed).length}/{quickActions.length} concluídas</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 stagger-children">
+                  {quickActions.map((action) => {
+                    const c = colorMap[action.color];
+                    return (
+                      <Link key={action.id} href={action.href} className="h-full">
+                        <div className={`group relative bg-white border border-slate-200 rounded-2xl p-5 cursor-pointer h-full flex flex-col min-h-[9rem]
+                          hover:border-transparent hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200
+                          ${action.completed ? 'border-l-4 ' + c.border : ''}`}>
+                          {/* Completed badge */}
+                          {action.completed && (
+                            <span className={`absolute top-3 right-3 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}>
+                              <FiCheckCircle className="w-3 h-3" />
+                              Concluído
+                            </span>
+                          )}
+                          {/* Icon */}
+                          <div className={`p-2.5 rounded-xl bg-gradient-to-br ${c.icon} text-white shadow-sm w-fit mb-3 group-hover:scale-110 transition-transform duration-200`}>
                             {action.icon}
                           </div>
-                          {action.completed && (
-                            <FiCheckCircle className="w-5 h-5 text-green-500" style={{ width: 20, height: 20 }} />
-                          )}
+                          {/* Text */}
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-slate-900 text-sm mb-1">{action.title}</h3>
+                            <p className="text-xs text-slate-500 leading-relaxed">{action.description}</p>
+                          </div>
+                          {/* Arrow */}
+                          <div className={`mt-3 flex items-center gap-1 text-xs font-medium ${c.text} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                            Acessar <HiArrowRight className="w-3.5 h-3.5" />
+                          </div>
                         </div>
-                        <div className="flex-1 flex flex-col">
-                          <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
-                          <p className="text-sm text-gray-600 flex-1">{action.description}</p>
-                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Recent Activity */}
+              <section>
+                <h2 className="text-lg font-bold text-slate-900 mb-4">Atividade Recente</h2>
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                  {recentActivities.map((activity, i) => (
+                    <div
+                      key={activity.id}
+                      className={`flex items-start gap-4 p-5 ${i < recentActivities.length - 1 ? 'border-b border-slate-100' : ''}`}
+                    >
+                      <div className={`p-2.5 rounded-xl shrink-0 ${
+                        activity.type === 'quiz'     ? 'bg-emerald-50 text-emerald-600' :
+                        activity.type === 'training' ? 'bg-blue-50 text-blue-600' :
+                                                       'bg-violet-50 text-violet-600'
+                      }`}>
+                        {activity.type === 'quiz'     && <HiCheckCircle className="w-5 h-5" />}
+                        {activity.type === 'training' && <HiAcademicCap className="w-5 h-5" />}
+                        {activity.type === 'info'     && <HiSparkles className="w-5 h-5" />}
                       </div>
-                    </Link>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-slate-900 text-sm">{activity.title}</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">{activity.description}</p>
+                      </div>
+                      <span className="text-xs text-slate-400 shrink-0">
+                        {new Date(activity.date).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
                   ))}
                 </div>
+              </section>
 
-                {/* Recent Activity */}
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Atividade Recente</h2>
-                <div className="bg-white rounded-lg shadow">
-                  <div className="p-6">
-                    <div className="space-y-4">
-                      {recentActivities.map((activity) => (
-                        <div key={activity.id} className="flex items-start space-x-4">
-                          <div className="p-2 rounded-lg bg-gray-100 text-gray-600 shrink-0">
-                            {activity.type === 'quiz' && <HiCheckCircle className="w-5 h-5 text-green-600" />}
-                            {activity.type === 'training' && <HiAcademicCap className="w-5 h-5 text-blue-600" />}
-                            {activity.type === 'info' && <HiSparkles className="w-5 h-5 text-purple-600" />}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">{activity.title}</h4>
-                            <p className="text-sm text-gray-600">{activity.description}</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {new Date(activity.date).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+              {/* Training History */}
+              {trainingSessions.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">Histórico de Treinamento</h2>
+                    <Link href="/treinamento">
+                      <Button variant="outline" size="sm">Novo Treinamento</Button>
+                    </Link>
                   </div>
-                </div>
-
-                {/* Training History */}
-                {trainingSessions.length > 0 && (
-                  <>
-                    <h2 className="text-xl font-bold text-gray-900 mb-6 mt-8">Histórico de Treinamento</h2>
-                    <div className="bg-white rounded-lg shadow">
-                      <div className="p-6">
-                        {loadingTrainingData ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-                            <span className="text-gray-600">Carregando histórico...</span>
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    {/* Stats summary */}
+                    {trainingStats && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-slate-100">
+                        {[
+                          { label: 'Sessões', value: trainingStats.totalSessions, color: 'text-blue-600' },
+                          { label: 'Tempo Total', value: `${Math.floor(trainingStats.totalDuration / 60)}min`, color: 'text-emerald-600' },
+                          { label: 'Mensagens', value: trainingStats.totalMessages, color: 'text-violet-600' },
+                          { label: 'Visto Favorito', value: trainingStats.favoriteVisaType || 'N/A', color: 'text-amber-600' },
+                        ].map((s, i) => (
+                          <div key={i} className="bg-white px-5 py-4 text-center">
+                            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
                           </div>
-                        ) : (
-                          <>
-                            {/* Training Stats Summary */}
-                            {trainingStats && (
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-                                <div className="text-center">
-                                  <p className="text-2xl font-bold text-blue-600">{trainingStats.totalSessions}</p>
-                                  <p className="text-xs text-gray-600">Total de Sessões</p>
+                        ))}
+                      </div>
+                    )}
+
+                    {loadingTrainingData ? (
+                      <div className="flex items-center justify-center py-10 gap-3">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-slate-500 text-sm">Carregando histórico...</span>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {trainingSessions.map((session) => (
+                          <div key={session.id} className="p-5 hover:bg-slate-50 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <h4 className="font-semibold text-slate-900 text-sm">{session.scenarioName}</h4>
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    session.difficulty === 'Iniciante' ? 'bg-emerald-50 text-emerald-700' :
+                                    session.difficulty === 'Intermediário' ? 'bg-amber-50 text-amber-700' :
+                                    'bg-red-50 text-red-700'
+                                  }`}>{session.difficulty}</span>
+                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{session.visaType}</span>
                                 </div>
-                                <div className="text-center">
-                                  <p className="text-2xl font-bold text-green-600">
-                                    {Math.floor(trainingStats.totalDuration / 60)}min
-                                  </p>
-                                  <p className="text-xs text-gray-600">Tempo Total</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-600 mb-3">
+                                  <div><span className="font-medium text-slate-700">Duração</span><p>{session.duration ? `${Math.floor(session.duration / 60)}min ${session.duration % 60}s` : 'N/A'}</p></div>
+                                  <div><span className="font-medium text-slate-700">Mensagens</span><p>{session.totalMessages}</p></div>
+                                  <div><span className="font-medium text-slate-700">Perguntas</span><p>{session.questionsAnswered}/{session.totalQuestions}</p></div>
+                                  <div><span className="font-medium text-slate-700">Status</span><p className={session.completed ? 'text-emerald-600' : 'text-amber-600'}>{session.completed ? 'Completo' : 'Incompleto'}</p></div>
                                 </div>
-                                <div className="text-center">
-                                  <p className="text-2xl font-bold text-purple-600">{trainingStats.totalMessages}</p>
-                                  <p className="text-xs text-gray-600">Mensagens Trocadas</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-2xl font-bold text-orange-600">
-                                    {trainingStats.favoriteVisaType || 'N/A'}
-                                  </p>
-                                  <p className="text-xs text-gray-600">Visto Mais Praticado</p>
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                  <span className="flex items-center gap-1"><HiGlobeAmericas className="w-3.5 h-3.5" />{session.language === 'pt' ? 'Português' : 'English'}</span>
+                                  <span className="flex items-center gap-1">
+                                    {session.interactionMode === 'voice' ? <><HiMicrophone className="w-3.5 h-3.5" /> Voz</> : <><HiClipboardList className="w-3.5 h-3.5" /> Texto</>}
+                                  </span>
+                                  <span className="flex items-center gap-1"><HiCalendarDays className="w-3.5 h-3.5" />{session.startTime?.toDate?.()?.toLocaleDateString('pt-BR') || 'N/D'}</span>
                                 </div>
                               </div>
-                            )}
-
-                            {/* Recent Sessions */}
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-semibold text-gray-900">Sessões Recentes</h3>
-                                <Link href="/treinamento">
-                                  <Button variant="outline" size="sm">
-                                    Novo Treinamento
-                                  </Button>
-                                </Link>
-                              </div>
-
-                              {trainingSessions.map((session) => (
-                                <div key={session.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <div className="flex items-center space-x-2 mb-2">
-                                        <h4 className="font-medium text-gray-900">{session.scenarioName}</h4>
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${session.difficulty === 'Iniciante' ? 'bg-green-100 text-green-800' :
-                                          session.difficulty === 'Intermediário' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-red-100 text-red-800'
-                                          }`}>
-                                          {session.difficulty}
-                                        </span>
-                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                          {session.visaType}
-                                        </span>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                                        <div>
-                                          <span className="font-medium">Duração:</span>
-                                          <p>{session.duration ? `${Math.floor(session.duration / 60)}min ${session.duration % 60}s` : 'N/A'}</p>
-                                        </div>
-                                        <div>
-                                          <span className="font-medium">Mensagens:</span>
-                                          <p>{session.totalMessages}</p>
-                                        </div>
-                                        <div>
-                                          <span className="font-medium">Perguntas:</span>
-                                          <p>{session.questionsAnswered}/{session.totalQuestions}</p>
-                                        </div>
-                                        <div>
-                                          <span className="font-medium">Status:</span>
-                                          <p className={session.completed ? 'text-green-600' : 'text-orange-600'}>
-                                            {session.completed ? 'Completo' : 'Incompleto'}
-                                          </p>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                                        <span className="flex items-center gap-1">
-                                          <HiGlobeAmericas className="w-3.5 h-3.5" />
-                                          {session.language === 'pt' ? 'Português' : 'English'}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                          {session.interactionMode === 'voice'
-                                            ? <><HiMicrophone className="w-3.5 h-3.5" /> Voz</>
-                                            : <><HiClipboardList className="w-3.5 h-3.5" /> Texto</>
-                                          }
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                          <HiCalendarDays className="w-3.5 h-3.5" />
-                                          {session.startTime?.toDate?.()?.toLocaleDateString('pt-BR') || 'Data não disponível'}
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-end space-y-2">
-                                      {session.completed && (
-                                        <FiCheckCircle className="w-5 h-5 text-green-500" />
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-
-                              {trainingSessions.length >= 5 && (
-                                <div className="text-center pt-4">
-                                  <Button variant="ghost" size="sm">
-                                    Ver Mais Sessões
-                                  </Button>
-                                </div>
-                              )}
+                              {session.completed && <FiCheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />}
                             </div>
-                          </>
+                          </div>
+                        ))}
+                        {trainingSessions.length >= 5 && (
+                          <div className="p-4 text-center">
+                            <Button variant="ghost" size="sm">Ver Mais Sessões</Button>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
+                    )}
+                  </div>
+                </section>
+              )}
+            </div>
 
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Recommended/Selected Visa Card */}
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow text-white p-6">
-                  <h3 className="font-bold text-lg mb-2">
+            {/* Sidebar */}
+            <div className="space-y-5">
+
+              {/* Visa card */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-blue-950 rounded-2xl p-5 text-white shadow-lg">
+                <div className="absolute inset-0 opacity-20" style={{
+                  backgroundImage: 'radial-gradient(circle at 70% 30%, #6366F1, transparent 60%)'
+                }} />
+                <div className="relative">
+                  <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">
                     {hasCustomVisa() ? 'Seu Visto Escolhido' : 'Seu Visto Recomendado'}
-                  </h3>
-                  <div className="bg-white/20 rounded-lg p-4 mb-4">
-                    <h4 className="font-semibold text-xl">
-                      {currentVisa || 'Complete o questionário'}
-                    </h4>
-                    <p className="text-blue-100 text-sm">
-                      {currentVisa
-                        ? (hasCustomVisa() ? 'Selecionado por você' : 'Baseado no seu perfil')
-                        : 'Para descobrir seu visto ideal'
-                      }
+                  </p>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-4 border border-white/10">
+                    <h4 className="font-bold text-xl">{currentVisa || 'Pendente'}</h4>
+                    <p className="text-blue-200 text-xs mt-1">
+                      {currentVisa ? (hasCustomVisa() ? 'Selecionado por você' : 'Baseado no seu perfil') : 'Faça o questionário'}
                     </p>
                   </div>
-
-                  <div className="flex flex-col space-y-2">
-                    <Link href={
-                      currentVisa
-                        ? (userProfile?.interviewsPracticed === 0 ? '/treinamento' : '/vistos')
-                        : '/questionario'
-                    }>
-                      <Button variant="secondary" size="sm" className="w-full inline-flex items-center justify-center gap-2">
+                  <div className="space-y-2">
+                    <Link href={currentVisa ? (userProfile?.interviewsPracticed === 0 ? '/treinamento' : '/vistos') : '/questionario'}>
+                      <Button variant="secondary" size="sm" className="w-full justify-start gap-2 bg-white text-slate-900 hover:bg-blue-50">
                         {currentVisa
                           ? (userProfile?.interviewsPracticed === 0
-                            ? <><HiAcademicCap className="w-4 h-4" /> Começar Treinamento</>
-                            : <><MdOutlineVerified className="w-4 h-4" /> Ver Detalhes</>)
-                          : <><HiQuestionMarkCircle className="w-4 h-4" /> Fazer Questionário</>
-                        }
+                              ? <><HiAcademicCap className="w-4 h-4" /> Começar Treinamento</>
+                              : <><MdOutlineVerified className="w-4 h-4" /> Ver Detalhes</>)
+                          : <><HiQuestionMarkCircle className="w-4 h-4" /> Fazer Questionário</>}
                       </Button>
                     </Link>
-
                     {currentVisa && (
                       <>
                         <Link href={`/documentos/${getVisaId(currentVisa)}`}>
-                          <Button variant="ghost" size="sm" className="w-full text-white hover:bg-white/20 inline-flex items-center justify-center gap-2">
-                            <HiClipboardList className="w-4 h-4" /> Ver Documentos Necessários
+                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-300 hover:text-white hover:bg-white/10">
+                            <HiClipboardList className="w-4 h-4" /> Documentos Necessários
                           </Button>
                         </Link>
                         <Link href="/vistos">
-                          <Button variant="ghost" size="sm" className="w-full text-white hover:bg-white/20 inline-flex items-center justify-center gap-2">
-                            <HiMap className="w-4 h-4" /> {hasCustomVisa() ? 'Alterar Visto' : 'Escolher Outro Visto'}
+                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-300 hover:text-white hover:bg-white/10">
+                            <HiMap className="w-4 h-4" /> {hasCustomVisa() ? 'Alterar Visto' : 'Explorar Vistos'}
                           </Button>
                         </Link>
                       </>
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Upcoming Tasks */}
-                <div className="bg-white rounded-lg shadow">
-                  <div className="p-6">
-                    <h3 className="font-bold text-gray-900 mb-4">Próximos Passos</h3>
-                    <div className="space-y-4">
-                      {upcomingTasks.map((task) => (
-                        <div key={task.id} className="border-l-4 border-gray-200 pl-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900 text-sm">{task.title}</h4>
-                              <p className="text-xs text-gray-600 mt-1">{task.description}</p>
-                            </div>
-                            <span className={`inline-block w-2 h-2 rounded-full ml-2 mt-2 ${task.priority === 'high' ? 'bg-red-500' :
-                              task.priority === 'medium' ? 'bg-yellow-500' :
-                                'bg-green-500'
-                              }`}></span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2 text-xs"
+              {/* Next Steps — timeline */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+                <h3 className="font-bold text-slate-900 mb-4 text-sm">Próximos Passos</h3>
+                <div className="relative">
+                  <div className="absolute left-[18px] top-0 bottom-0 w-px bg-slate-100" />
+                  <div className="space-y-5">
+                    {generateUpcomingTasks().map((task, i) => (
+                      <div key={task.id} className="flex gap-3 relative">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 z-10 text-xs font-bold ${
+                          task.priority === 'high'   ? 'bg-red-100 text-red-600' :
+                          task.priority === 'medium' ? 'bg-amber-100 text-amber-600' :
+                                                       'bg-emerald-100 text-emerald-600'
+                        }`}>{i + 1}</div>
+                        <div className="flex-1 pb-1">
+                          <h4 className="font-semibold text-slate-900 text-sm">{task.title}</h4>
+                          <p className="text-xs text-slate-500 mt-0.5 mb-2">{task.description}</p>
+                          <button
+                            className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
                             onClick={() => {
                               if (task.id === 1) router.push('/questionario');
                               else if (task.id === 2 || task.id === 3) router.push('/treinamento');
                               else if (task.id === 4) router.push('/vistos');
                             }}
                           >
-                            {task.action}
-                          </Button>
+                            {task.action} →
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                {/* Help Card */}
-                <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <MdSupportAgent className="w-5 h-5 text-yellow-700" />
-                    <h3 className="font-bold text-yellow-800">Precisa de Ajuda?</h3>
-                  </div>
-                  <p className="text-yellow-700 text-sm mb-4">
-                    Nossa equipe de especialistas está pronta para te ajudar em qualquer etapa do processo.
-                  </p>
-                  <Button variant="outline" size="sm" className="w-full border-yellow-300 text-yellow-700 hover:bg-yellow-100 inline-flex items-center justify-center gap-2">
-                    <MdSupportAgent className="w-4 h-4" /> Falar com Especialista
-                  </Button>
                 </div>
               </div>
+
+              {/* Help card */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 bg-amber-100 rounded-xl">
+                    <MdSupportAgent className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <h3 className="font-bold text-amber-900 text-sm">Precisa de Ajuda?</h3>
+                </div>
+                <p className="text-amber-800 text-xs mb-4 leading-relaxed">
+                  Nossa equipe de especialistas está pronta para te ajudar em qualquer etapa do processo de imigração.
+                </p>
+                <Button variant="outline" size="sm" className="w-full border-amber-300 text-amber-800 hover:bg-amber-100 gap-2">
+                  <MdSupportAgent className="w-4 h-4" /> Falar com Especialista
+                </Button>
+              </div>
+
             </div>
           </div>
         </div>
