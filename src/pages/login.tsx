@@ -61,19 +61,18 @@ export default function Login() {
   };
 
   return (
-    <Layout>
-      <div className="min-h-[calc(100vh-4rem)] flex">
+    <Layout showHeader={false}>
+      <div className="min-h-screen flex">
         {/* Left panel — branding */}
         <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-12 text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-20" style={{
             backgroundImage: 'radial-gradient(circle at 20% 80%, #3B82F6, transparent 50%), radial-gradient(circle at 80% 20%, #6366F1, transparent 40%)'
           }} />
           <div className="relative">
-            <div className="inline-flex items-center gap-2.5 mb-12">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <span className="text-white font-bold text-xs tracking-wider">ME</span>
+            <div className="mb-12">
+              <div className="inline-block bg-white rounded-2xl px-4 py-3 shadow-lg">
+                <img src="/logo.png" alt="MoveEasy Immigration" className="h-14 w-auto object-contain" />
               </div>
-              <span className="text-xl font-bold">Move<span className="text-blue-300">Easy</span></span>
             </div>
             <h2 className="text-4xl font-bold leading-tight mb-4">
               Sua jornada para<br />os EUA começa aqui

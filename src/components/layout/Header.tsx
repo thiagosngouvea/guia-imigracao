@@ -43,13 +43,14 @@ export function Header({ theme = 'dark' }: HeaderProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2.5 group">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-shadow">
-              <span className="text-white font-bold text-xs tracking-wider">ME</span>
+          <Link href={user ? '/dashboard' : '/'} className="flex items-center group">
+            <div className="bg-white rounded-xl px-2 py-1 shadow-sm group-hover:shadow-md transition-shadow">
+              <img
+                src="/logo.png"
+                alt="MoveEasy Immigration"
+                className="h-9 w-auto object-contain"
+              />
             </div>
-            <span className={`text-lg font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Move<span className="text-blue-400">Easy</span>
-            </span>
           </Link>
 
           {/* Nav */}

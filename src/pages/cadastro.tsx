@@ -64,8 +64,8 @@ export default function Cadastro() {
   };
 
   return (
-    <Layout>
-      <div className="min-h-[calc(100vh-4rem)] flex">
+    <Layout showHeader={false}>
+      <div className="min-h-screen flex">
         {/* Left panel */}
         <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-indigo-950 via-blue-950 to-slate-900 p-12 text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-20" style={{
