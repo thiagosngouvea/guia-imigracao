@@ -5,6 +5,9 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
+import { HiUser, HiIdentification, HiLocationMarker, HiPaperAirplane, HiBriefcase } from 'react-icons/hi';
+import { HiArrowLeft, HiArrowRight, HiExclamationTriangle, HiInformationCircle } from 'react-icons/hi2';
+import { FiDownload, FiTrash2, FiCheckCircle } from 'react-icons/fi';
 
 interface DS160Section {
   id: string;
@@ -501,210 +504,173 @@ export default function DS160Helper() {
   const currentSectionData = sections[currentSection];
   const completionPercentage = getCompletionPercentage();
 
+  const SECTION_ICONS = [
+    <HiUser key="user" className="w-4 h-4" />,
+    <HiIdentification key="id" className="w-4 h-4" />,
+    <HiLocationMarker key="loc" className="w-4 h-4" />,
+    <HiPaperAirplane key="plane" className="w-4 h-4" />,
+    <HiBriefcase key="brief" className="w-4 h-4" />,
+  ];
+
   return (
     <SubscriptionGuard>
       <Layout>
-        <div className="min-h-screen bg-gray-50 py-8">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="py-10 px-4" style={{ background: 'linear-gradient(135deg, #F0F7FF 0%, #F8FAFC 50%, #F0F4FF 100%)' }}>
+          <div className="mx-auto max-w-3xl">
             {/* Header */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
+            <div className="mb-8 animate-fade-in">
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Assistente DS-160
-                  </h1>
-                  <p className="text-gray-600 mt-2">
-                    Preencha os dados aqui e depois transfira para o formulário oficial
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 mb-1">Formulário Oficial</p>
+                  <h1 className="text-2xl font-bold text-slate-900">Assistente DS-160</h1>
+                  <p className="text-slate-500 text-sm mt-1">Preencha aqui e transfira para o formulário oficial</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{completionPercentage}%</div>
-                  <div className="text-sm text-gray-500">Completo</div>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{completionPercentage}%</div>
+                  <div className="text-xs text-slate-500">Completo</div>
                 </div>
               </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${completionPercentage}%` }}
-                ></div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${completionPercentage}%` }} />
               </div>
-
-              {/* Section Navigation */}
-              <div className="mt-6 flex flex-wrap gap-2">
-                {sections.map((section, index) => (
-                  <button
-                    key={section.id}
-                    onClick={() => setCurrentSection(index)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      index === currentSection
-                        ? 'bg-blue-600 text-white'
-                        : isSectionComplete(section)
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {isSectionComplete(section) && (
-                      <span className="mr-1">✓</span>
-                    )}
-                    {section.title}
-                  </button>
-                ))}
+              {/* Section tabs */}
+              <div className="mt-5 flex flex-wrap gap-2">
+                {sections.map((section, index) => {
+                  const done = isSectionComplete(section);
+                  return (
+                    <button
+                      key={section.id}
+                      onClick={() => setCurrentSection(index)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200 ${
+                        index === currentSection
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                          : done
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {done && index !== currentSection
+                        ? <FiCheckCircle className="w-3.5 h-3.5" />
+                        : SECTION_ICONS[index]}
+                      {section.title}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Current Section */}
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {currentSectionData.title}
-                </h2>
-                <p className="text-gray-600">{currentSectionData.description}</p>
+            {/* Current section form */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 animate-scale-in">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl">
+                  {SECTION_ICONS[currentSection]}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">{currentSectionData.title}</h2>
+                  <p className="text-sm text-slate-500">{currentSectionData.description}</p>
+                </div>
               </div>
 
-              {/* Form Fields */}
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {currentSectionData.fields.map((field) => (
                   <div key={field.id}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
                       {field.label}
                       {field.required && <span className="text-red-500 ml-1">*</span>}
                     </label>
 
                     {field.type === 'text' && (
-                      <Input
-                        type="text"
-                        value={formData[field.id] as string || ''}
+                      <Input type="text" value={formData[field.id] as string || ''}
                         onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="w-full"
-                      />
+                        placeholder={field.placeholder} className="w-full" />
                     )}
-
                     {field.type === 'date' && (
-                      <Input
-                        type="date"
-                        value={formData[field.id] as string || ''}
+                      <Input type="date" value={formData[field.id] as string || ''}
                         onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                        className="w-full"
-                      />
+                        className="w-full" />
                     )}
-
                     {field.type === 'textarea' && (
                       <textarea
                         value={formData[field.id] as string || ''}
                         onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                        placeholder={field.placeholder}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder={field.placeholder} rows={3}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all duration-200 placeholder:text-slate-400 resize-none"
                       />
                     )}
-
                     {field.type === 'select' && (
-                      <select
-                        value={formData[field.id] as string || ''}
+                      <select value={formData[field.id] as string || ''}
                         onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all duration-200 appearance-none">
                         <option value="">Selecione uma opção</option>
                         {field.options?.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
+                          <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
                     )}
-
                     {field.type === 'radio' && (
-                      <div className="flex gap-4">
+                      <div className="flex gap-3">
                         {field.options?.map((option) => (
-                          <label key={option} className="flex items-center">
-                            <input
-                              type="radio"
-                              name={field.id}
-                              value={option}
+                          <label key={option} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 transition-all">
+                            <input type="radio" name={field.id} value={option}
                               checked={formData[field.id] === option}
                               onChange={(e) => handleFieldChange(field.id, e.target.value)}
-                              className="mr-2"
-                            />
-                            {option}
+                              className="text-blue-600 focus:ring-blue-500/30" />
+                            <span className="text-sm text-slate-700">{option}</span>
                           </label>
                         ))}
                       </div>
                     )}
-
                     {field.help && (
-                      <p className="text-sm text-gray-500 mt-1">{field.help}</p>
+                      <p className="text-xs text-slate-500 mt-1.5">{field.help}</p>
                     )}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Navigation and Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+            {/* Navigation */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-6">
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={prevSection}
-                  disabled={currentSection === 0}
-                >
-                  ← Anterior
+                <Button variant="ghost" onClick={prevSection} disabled={currentSection === 0} className="gap-2">
+                  <HiArrowLeft className="w-4 h-4" /> Anterior
                 </Button>
-                <Button
-                  onClick={nextSection}
-                  disabled={currentSection === sections.length - 1}
-                >
-                  Próximo →
+                <Button onClick={nextSection} disabled={currentSection === sections.length - 1} className="gap-2">
+                  Próximo <HiArrowRight className="w-4 h-4" />
                 </Button>
               </div>
-
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={exportData}
-                  className="text-green-600 border-green-600 hover:bg-green-50"
-                >
-                  📥 Exportar Dados
+                <Button variant="outline" onClick={exportData} className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50">
+                  <FiDownload className="w-4 h-4" /> Exportar
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={clearData}
-                  className="text-red-600 border-red-600 hover:bg-red-50"
-                >
-                  🗑️ Limpar Dados
+                <Button variant="outline" onClick={clearData} className="gap-2 text-red-600 border-red-300 hover:bg-red-50">
+                  <FiTrash2 className="w-4 h-4" /> Limpar
                 </Button>
               </div>
             </div>
 
             {/* Instructions */}
-            <div className="mt-8 bg-blue-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-3">
-                📋 Como usar este assistente
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                <HiInformationCircle className="w-4 h-4 text-blue-600" /> Como usar este assistente
               </h3>
-              <ul className="space-y-2 text-blue-800">
-                <li>• Preencha todas as seções com suas informações pessoais</li>
-                <li>• Os dados são salvos automaticamente no seu navegador</li>
-                <li>• Use o botão &quot;Exportar Dados&quot; para baixar um arquivo com suas informações</li>
-                <li>• Acesse o site oficial do DS-160: <a href="https://ceac.state.gov/genniv" target="_blank" rel="noopener noreferrer" className="underline font-medium">ceac.state.gov/genniv</a></li>
-                <li>• Transfira os dados daqui para o formulário oficial</li>
-                <li>• Mantenha este assistente aberto em outra aba para consulta</li>
+              <ul className="space-y-1.5 text-blue-800 text-sm">
+                <li className="flex items-start gap-2"><FiCheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-500" /> Preencha todas as seções com suas informações pessoais</li>
+                <li className="flex items-start gap-2"><FiCheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-500" /> Os dados são salvos automaticamente no seu navegador</li>
+                <li className="flex items-start gap-2"><FiCheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-500" /> Use &quot;Exportar&quot; para baixar um arquivo com suas informações</li>
+                <li className="flex items-start gap-2"><FiCheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-500" /> Acesse o site oficial: <a href="https://ceac.state.gov/genniv" target="_blank" rel="noopener noreferrer" className="underline font-medium">ceac.state.gov/genniv</a></li>
               </ul>
             </div>
 
             {/* Warning */}
-            <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <div className="text-yellow-600 mr-3">⚠️</div>
-                <div>
-                  <h4 className="font-medium text-yellow-800">Importante</h4>
-                  <p className="text-yellow-700 text-sm mt-1">
-                    Este é apenas um assistente para organizar suas informações. 
-                    O formulário oficial DS-160 deve ser preenchido no site do governo americano. 
-                    Sempre verifique as informações antes de submeter o formulário oficial.
-                  </p>
-                </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
+              <HiExclamationTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-amber-800 mb-1">Importante</h4>
+                <p className="text-amber-700 text-xs leading-relaxed">
+                  Este é apenas um assistente para organizar suas informações.
+                  O formulário oficial DS-160 deve ser preenchido no site do governo americano.
+                  Sempre verifique as informações antes de submeter o formulário oficial.
+                </p>
               </div>
             </div>
           </div>

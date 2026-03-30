@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
@@ -11,6 +11,9 @@ import {
   finishTrainingSession,
   TrainingMessage 
 } from '../lib/training-history';
+import { HiAcademicCap, HiGlobeAlt, HiDocumentText } from 'react-icons/hi';
+import { HiMicrophone, HiCpuChip, HiLanguage, HiChartBar, HiCheckBadge, HiExclamationTriangle } from 'react-icons/hi2';
+import { FiCheckCircle } from 'react-icons/fi';
 
 interface Message {
   id: string;
@@ -39,6 +42,12 @@ interface InterviewScenario {
 type Language = 'pt' | 'en';
 type InteractionMode = 'text' | 'voice';
 
+const SCENARIO_ICONS: Record<string, React.ReactNode> = {
+  'b1b2-tourism': <HiGlobeAlt className="w-6 h-6" />,
+  'f1-student': <HiAcademicCap className="w-6 h-6" />,
+  'h1b-work': <HiDocumentText className="w-6 h-6" />,
+};
+
 const scenarios: InterviewScenario[] = [
   {
     id: 'b1b2-tourism',
@@ -46,7 +55,7 @@ const scenarios: InterviewScenario[] = [
     description: 'Simulação de entrevista para visto de turismo B1/B2 para quem nunca visitou os EUA.',
     visaType: 'B1/B2',
     difficulty: 'Iniciante',
-    icon: '🏖️',
+    icon: 'globe',
     color: 'from-emerald-400 to-teal-500',
     questions: {
       pt: [
@@ -77,7 +86,7 @@ const scenarios: InterviewScenario[] = [
     description: 'Entrevista para visto de estudante F1 para curso de graduação.',
     visaType: 'F1',
     difficulty: 'Intermediário',
-    icon: '🎓',
+    icon: 'academic',
     color: 'from-blue-400 to-indigo-500',
     questions: {
       pt: [
@@ -108,7 +117,7 @@ const scenarios: InterviewScenario[] = [
     description: 'Entrevista para visto de trabalho H1B para profissional especializado.',
     visaType: 'H1B',
     difficulty: 'Avançado',
-    icon: '💼',
+    icon: 'document',
     color: 'from-purple-400 to-pink-500',
     questions: {
       pt: [
@@ -263,18 +272,14 @@ export default function Treinamento() {
     setCurrentSessionId(null);
   };
 
-  // Show loading state
+  // Show loading
   if (loading) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 flex items-center justify-center">
-          <div className="text-center">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-6"></div>
-              <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-r-indigo-400 animate-pulse mx-auto"></div>
-            </div>
-            <p className="text-gray-600 text-lg font-medium">Preparando seu treinamento...</p>
-            <p className="text-gray-400 text-sm mt-2">Carregando cenários personalizados</p>
+        <div className="min-h-[80vh] flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-slate-500 text-sm">Carregando cenários...</p>
           </div>
         </div>
       </Layout>
@@ -311,135 +316,101 @@ export default function Treinamento() {
   return (
     <SubscriptionGuard>
       <Layout>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-          {/* Hero Section */}
+        <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #F0F7FF 0%, #F8FAFC 50%, #EEF2FF 100%)' }}>
+          {/* Hero */}
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
-            <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
+            <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
               <div className="text-center">
-                {/* Animated header */}
-                <div className="mb-8 animate-fade-in-up">
-                  <div className="inline-flex items-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                    <span className="text-6xl mr-4">🎯</span>
-                    <span className="text-5xl font-bold">IA Training</span>
+                <div className="mb-8 animate-fade-in">
+                  <div className="inline-flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-500/30">
+                      <HiAcademicCap className="w-8 h-8" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-widest text-blue-600">IA Treinamento</span>
                   </div>
-                  <h1 className="text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                  <h1 className="text-5xl font-bold text-slate-900 mb-4 leading-tight">
                     Treinamento de
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Entrevista</span>
+                    <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"> Entrevista</span>
                   </h1>
-                  <p className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
-                    Pratique sua entrevista de visto com nossa IA especializada powered by 
-                    <span className="font-semibold text-green-600"> ChatGPT</span>. 
-                    Receba feedback personalizado e melhore suas chances de aprovação com tecnologia de ponta.
+                  <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+                    Pratique sua entrevista de visto com IA especializada.
+                    Receba feedback personalizado e melhore suas chances de aprovação.
                   </p>
                 </div>
 
-                {/* Stats Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-3xl mx-auto">
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">95%</div>
-                    <div className="text-gray-600">Taxa de Aprovação</div>
-                  </div>
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20">
-                    <div className="text-3xl font-bold text-green-600 mb-2">10k+</div>
-                    <div className="text-gray-600">Usuários Treinados</div>
-                  </div>
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20">
-                    <div className="text-3xl font-bold text-purple-600 mb-2">24/7</div>
-                    <div className="text-gray-600">Disponibilidade</div>
-                  </div>
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4 mb-10 max-w-2xl mx-auto stagger-children">
+                  {[
+                    { value: '95%', label: 'Taxa de Aprovação', color: 'text-blue-600' },
+                    { value: '10k+', label: 'Usuários Treinados', color: 'text-emerald-600' },
+                    { value: '24/7', label: 'Disponibilidade', color: 'text-violet-600' },
+                  ].map((s, i) => (
+                    <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-white/60 hover:shadow-md transition-shadow">
+                      <div className={`text-2xl font-bold ${s.color} mb-1`}>{s.value}</div>
+                      <div className="text-slate-500 text-xs font-medium">{s.label}</div>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Interactive Settings */}
-                <div className="flex flex-col sm:flex-row justify-center items-center gap-6 mb-8">
-                  {/* Language Selector */}
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <span className="mr-2">🌍</span> Idioma de Treinamento
+                {/* Settings */}
+                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-slate-200">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                      <HiLanguage className="w-4 h-4 text-blue-500" /> Idioma
                     </h3>
-                    <div className="flex bg-gray-100 rounded-xl p-2 space-x-2">
-                      <button
-                        onClick={() => setLanguage('pt')}
-                        className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          language === 'pt' 
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform scale-105' 
-                            : 'text-gray-600 hover:bg-white hover:shadow-sm'
-                        }`}
-                      >
-                        <span className="text-lg mr-2">🇧🇷</span>
-                        Português
-                      </button>
-                      <button
-                        onClick={() => setLanguage('en')}
-                        className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          language === 'en' 
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform scale-105' 
-                            : 'text-gray-600 hover:bg-white hover:shadow-sm'
-                        }`}
-                      >
-                        <span className="text-lg mr-2">🇺🇸</span>
-                        English
-                      </button>
+                    <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                      {(['pt', 'en'] as const).map(lang => (
+                        <button key={lang} onClick={() => setLanguage(lang)}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            language === lang
+                              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
+                              : 'text-slate-600 hover:bg-white'
+                          }`}>
+                          {lang === 'pt' ? '🇧🇷 Português' : '🇺🇸 English'}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  
-                  {/* Interaction Mode Selector */}
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <span className="mr-2">⚡</span> Modo de Interação
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-slate-200">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                      <HiCpuChip className="w-4 h-4 text-emerald-500" /> Modo
                     </h3>
-                    <div className="flex bg-gray-100 rounded-xl p-2 space-x-2">
-                      <button
-                        onClick={() => setInteractionMode('text')}
-                        className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          interactionMode === 'text' 
-                            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg transform scale-105' 
-                            : 'text-gray-600 hover:bg-white hover:shadow-sm'
-                        }`}
-                      >
-                        <span className="text-lg mr-2">📝</span>
-                        Texto
-                      </button>
-                      <button
-                        onClick={() => setInteractionMode('voice')}
-                        className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          interactionMode === 'voice' 
-                            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg transform scale-105' 
-                            : 'text-gray-600 hover:bg-white hover:shadow-sm'
-                        }`}
-                      >
-                        <span className="text-lg mr-2">🎤</span>
-                        Voz
-                      </button>
+                    <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                      {(['text', 'voice'] as const).map(mode => (
+                        <button key={mode} onClick={() => setInteractionMode(mode)}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            interactionMode === mode
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md scale-105'
+                              : 'text-slate-600 hover:bg-white'
+                          }`}>
+                          {mode === 'text'
+                            ? <><HiDocumentText className="w-4 h-4" /> Texto</>
+                            : <><HiMicrophone className="w-4 h-4" /> Voz</>}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
                 
                 {/* Current Visa Status */}
                 {currentVisa && (
-                  <div className="inline-flex items-center bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 mb-8">
-                    <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-semibold">Treinando para: {currentVisa}</span>
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-full shadow-lg mb-8 text-sm font-semibold">
+                    <FiCheckCircle className="w-4 h-4" />
+                    Treinando para: {currentVisa}
                     {hasCustomVisa && (
-                      <span className="ml-3 text-sm bg-white/20 px-3 py-1 rounded-full">(Personalizado)</span>
+                      <span className="ml-2 text-xs bg-white/20 px-2.5 py-0.5 rounded-full">Personalizado</span>
                     )}
                   </div>
                 )}
                 
                 {!currentVisa && (
-                  <div className="bg-gradient-to-r from-yellow-100 to-orange-100 border border-yellow-300 rounded-2xl p-6 max-w-md mx-auto mb-8 shadow-lg">
-                    <div className="text-4xl mb-3">⚠️</div>
-                    <p className="text-yellow-800 font-medium mb-4">
-                      Complete o questionário primeiro para treinar com cenários personalizados.
+                  <div className="inline-flex flex-col items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-6 max-w-sm mx-auto mb-8">
+                    <HiExclamationTriangle className="w-8 h-8 text-amber-500" />
+                    <p className="text-amber-800 font-medium text-sm text-center">
+                      Complete o questionário para treinar com cenários personalizados.
                     </p>
-                    <Button 
-                      variant="outline" 
-                      className="bg-white hover:bg-yellow-50 border-yellow-300 text-yellow-800 font-semibold"
-                      onClick={() => router.push('/questionario')}
-                    >
-                      <span className="mr-2">📋</span>
+                    <Button variant="outline" size="sm" className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                      onClick={() => router.push('/questionario')}>
                       Fazer Questionário
                     </Button>
                   </div>
@@ -448,106 +419,72 @@ export default function Treinamento() {
             </div>
           </div>
 
-          {/* Scenarios Section */}
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                Escolha seu <span className="text-blue-600">Cenário</span>
+          {/* Scenarios */}
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-20">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Escolha seu <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Cenário</span>
               </h2>
-              <p className="text-xl text-gray-600">
+              <p className="text-slate-500 text-sm">
                 Selecione o tipo de entrevista que melhor se adapta ao seu perfil
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {relevantScenarios.map((scenario, index) => {
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
+              {relevantScenarios.map((scenario) => {
                 const isRecommended = currentVisa && scenario.visaType === currentVisa;
-                const isHovered = hoveredScenario === scenario.id;
-                
                 return (
                   <div
                     key={scenario.id}
-                    className={`group relative bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 ${
+                    className={`group relative bg-white rounded-2xl overflow-hidden border transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${
                       isSavingSession ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                    } ${isRecommended ? 'ring-4 ring-blue-400 ring-opacity-50' : ''}`}
-                    style={{
-                      animationDelay: `${index * 150}ms`,
-                      animation: 'fadeInUp 0.8s ease-out forwards'
-                    }}
+                    } ${isRecommended ? 'border-blue-400 ring-2 ring-blue-400/30' : 'border-slate-200'}`}
                     onClick={() => !isSavingSession && startInterview(scenario)}
-                    onMouseEnter={() => setHoveredScenario(scenario.id)}
-                    onMouseLeave={() => setHoveredScenario(null)}
                   >
-                    {/* Gradient Background */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${scenario.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                    {/* Gradient hover bg */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${scenario.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                     
                     {/* Recommended Badge */}
                     {isRecommended && (
-                      <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 text-sm font-bold rounded-bl-2xl shadow-lg z-10">
-                        <span className="mr-1">⭐</span>
-                        Recomendado
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-semibold z-10">
+                        <HiCheckBadge className="w-3.5 h-3.5" /> Recomendado
                       </div>
                     )}
                     
-                    {/* Card Header */}
-                    <div className="relative p-8">
-                      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${scenario.color} flex items-center justify-center text-2xl mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                        {scenario.icon}
+                    <div className="p-6">
+                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${scenario.color} flex items-center justify-center text-white mb-5 shadow-md group-hover:scale-110 transition-transform duration-200`}>
+                        {SCENARIO_ICONS[scenario.id]}
                       </div>
                       
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                           {scenario.name}
                         </h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
-                          scenario.difficulty === 'Iniciante' ? 'bg-green-100 text-green-700' :
-                          scenario.difficulty === 'Intermediário' ? 'bg-yellow-100 text-yellow-700' :
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          scenario.difficulty === 'Iniciante' ? 'bg-emerald-100 text-emerald-700' :
+                          scenario.difficulty === 'Intermediário' ? 'bg-amber-100 text-amber-700' :
                           'bg-red-100 text-red-700'
-                        }`}>
-                          {scenario.difficulty}
-                        </span>
+                        }`}>{scenario.difficulty}</span>
                       </div>
                       
-                      <p className="text-gray-600 mb-6 leading-relaxed">
-                        {scenario.description}
-                      </p>
+                      <p className="text-slate-500 text-sm mb-5 leading-relaxed">{scenario.description}</p>
                       
-                      {/* Card Stats */}
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                            {scenario.visaType}
-                          </span>
-                        </div>
-                        <span className="text-sm text-gray-500 font-medium">
-                          {scenario.questions[language].length} perguntas
-                        </span>
-                      </div>
-                      
-                      {/* Features */}
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <div className="flex items-center space-x-1">
-                          <span>🤖</span>
-                          <span>ChatGPT</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span>🎤</span>
-                          <span>Voz</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span>🌐</span>
-                          <span>Multilíngue</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">{scenario.visaType}</span>
+                        <div className="flex items-center gap-3 text-xs text-slate-400">
+                          <span className="flex items-center gap-1"><HiCpuChip className="w-3.5 h-3.5" /> IA</span>
+                          <span className="flex items-center gap-1"><HiMicrophone className="w-3.5 h-3.5" /> Voz</span>
+                          <span className="flex items-center gap-1"><HiLanguage className="w-3.5 h-3.5" /> {scenario.questions[language].length}p</span>
                         </div>
                       </div>
-                      
-                      {/* Hover Effect */}
-                      <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${scenario.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
                     </div>
                     
-                    {/* Loading State */}
+                    {/* Bottom gradient bar */}
+                    <div className={`h-1 bg-gradient-to-r ${scenario.color} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
+                    
                     {isSavingSession && (
                       <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                       </div>
                     )}
                   </div>
@@ -556,62 +493,26 @@ export default function Treinamento() {
             </div>
           </div>
 
-          {/* Features Showcase */}
-          <div className="bg-gradient-to-r from-gray-50 to-blue-50 py-20">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-16">
-                <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                  Tecnologia de <span className="text-blue-600">Última Geração</span>
-                </h2>
-                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                  Recursos avançados para uma experiência de treinamento completa e eficaz
-                </p>
+          {/* Features */}
+          <div className="bg-white/60 border-t border-slate-100 py-14">
+            <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Tecnologia de Ponta</h2>
+                <p className="text-slate-500 text-sm">Recursos avançados para uma experiência completa</p>
               </div>
-              
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 stagger-children">
                 {[
-                  {
-                    icon: '🤖',
-                    title: 'IA ChatGPT',
-                    description: 'Conversas naturais e feedback inteligente powered by OpenAI GPT-4.',
-                    color: 'from-blue-500 to-cyan-500'
-                  },
-                  {
-                    icon: '🎤',
-                    title: 'Conversação por Voz',
-                    description: 'Pratique falando e ouvindo como em uma entrevista real com síntese de voz.',
-                    color: 'from-green-500 to-emerald-500'
-                  },
-                  {
-                    icon: '🌐',
-                    title: 'Multilíngue',
-                    description: 'Treine em português ou inglês com tradução automática e contextual.',
-                    color: 'from-purple-500 to-pink-500'
-                  },
-                  {
-                    icon: '📊',
-                    title: 'Análise Inteligente',
-                    description: 'Receba análises detalhadas e dicas específicas baseadas em IA.',
-                    color: 'from-orange-500 to-red-500'
-                  }
-                ].map((feature, index) => (
-                  <div
-                    key={index}
-                    className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100"
-                    style={{
-                      animationDelay: `${index * 100}ms`,
-                      animation: 'fadeInUp 0.6s ease-out forwards'
-                    }}
-                  >
-                    <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center text-3xl mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                      {feature.icon}
+                  { icon: <HiCpuChip className="w-6 h-6" />, title: 'IA ChatGPT', description: 'Feedback inteligente powered by OpenAI GPT-4.', color: 'from-blue-500 to-cyan-500' },
+                  { icon: <HiMicrophone className="w-6 h-6" />, title: 'Modo Voz', description: 'Pratique falando como em uma entrevista real.', color: 'from-emerald-500 to-teal-500' },
+                  { icon: <HiLanguage className="w-6 h-6" />, title: 'Multilíngue', description: 'Treine em português ou inglês.', color: 'from-violet-500 to-purple-500' },
+                  { icon: <HiChartBar className="w-6 h-6" />, title: 'Análise', description: 'Relatório com dicas específicas para seu caso.', color: 'from-amber-500 to-orange-500' },
+                ].map((f, i) => (
+                  <div key={i} className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100 hover:-translate-y-0.5">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} text-white flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform duration-200`}>
+                      {f.icon}
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors duration-300">
-                      {feature.title}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      {feature.description}
-                    </p>
+                    <h3 className="text-sm font-bold text-slate-900 mb-1">{f.title}</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">{f.description}</p>
                   </div>
                 ))}
               </div>
@@ -623,31 +524,4 @@ export default function Treinamento() {
   );
 }
 
-// Add custom CSS animations
-const styles = `
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-fade-in-up {
-    animation: fade-in-up 0.8s ease-out;
-  }
-`;
+// CSS animations moved to globals.css

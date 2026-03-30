@@ -4,6 +4,8 @@ import { Layout } from '../components/layout/Layout';
 import { EB2NIWAnalysis } from '../components/EB2NIWAnalysis';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
+import { HiChartBar, HiDocumentReport } from 'react-icons/hi';
+import { HiExclamationTriangle, HiLightBulb, HiCpuChip, HiSparkles, HiClipboardDocument, HiDocumentCheck } from 'react-icons/hi2';
 
 interface CaseAnalysis {
   pdfLink: string;
@@ -73,8 +75,8 @@ export default function EB2NIWPage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Hero Section */}
             <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-6">
-                <span className="text-2xl">🎯</span>
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30 mb-5">
+                <HiLightBulb className="w-8 h-8 text-white" />
               </div>
               
               <h1 className="text-5xl font-bold text-gray-900 mb-4">
@@ -90,9 +92,9 @@ export default function EB2NIWPage() {
 
             {/* Features Overview */}
             <div className="grid md:grid-cols-3 gap-8 mb-12">
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-emerald-500 rounded-xl flex items-center justify-center mb-6">
-                  <span className="text-2xl">📊</span>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-7 shadow-sm border border-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <div className="w-11 h-11 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center mb-5 shadow-sm">
+                  <HiChartBar className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Análise Comparativa</h3>
                 <p className="text-gray-600">
@@ -101,9 +103,9 @@ export default function EB2NIWPage() {
                 </p>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center mb-6">
-                  <span className="text-2xl">🤖</span>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-7 shadow-sm border border-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <div className="w-11 h-11 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center mb-5 shadow-sm">
+                  <HiCpuChip className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">IA Especializada</h3>
                 <p className="text-gray-600">
@@ -112,9 +114,9 @@ export default function EB2NIWPage() {
                 </p>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-500 rounded-xl flex items-center justify-center mb-6">
-                  <span className="text-2xl">📈</span>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-7 shadow-sm border border-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+                <div className="w-11 h-11 bg-gradient-to-r from-violet-400 to-purple-500 rounded-xl flex items-center justify-center mb-5 shadow-sm">
+                  <HiDocumentReport className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Relatório Detalhado</h3>
                 <p className="text-gray-600">
@@ -180,41 +182,30 @@ export default function EB2NIWPage() {
               <h2 className="text-3xl font-bold mb-8 text-center">Como Funciona</h2>
               
               <div className="grid md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-xl">1️⃣</span>
-                  </div>
-                  <h4 className="font-bold mb-2">Descreva seu Caso</h4>
+                  <div className="text-center">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-white font-bold text-sm">1</div>
+                    <h4 className="font-bold mb-1 text-sm">Descreva seu Caso</h4>
                   <p className="text-blue-100 text-sm">
                     Forneça detalhes sobre os três prongs do seu caso NIW
                   </p>
                 </div>
-                
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-xl">2️⃣</span>
-                  </div>
-                  <h4 className="font-bold mb-2">Base de Dados</h4>
+                                <div className="text-center">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-white font-bold text-sm">2</div>
+                    <h4 className="font-bold mb-1 text-sm">Base de Dados</h4>
                   <p className="text-blue-100 text-sm">
                     Sistema acessa automaticamente nossa base com casos negados do USCIS
                   </p>
                 </div>
-                
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-xl">3️⃣</span>
-                  </div>
-                  <h4 className="font-bold mb-2">Análise com IA</h4>
+                                <div className="text-center">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-white font-bold text-sm">3</div>
+                    <h4 className="font-bold mb-1 text-sm">Análise com IA</h4>
                   <p className="text-blue-100 text-sm">
                     Nossa IA processa os documentos e compara com seu caso
                   </p>
                 </div>
-                
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-xl">4️⃣</span>
-                  </div>
-                  <h4 className="font-bold mb-2">Relatório Final</h4>
+                                <div className="text-center">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-white font-bold text-sm">4</div>
+                    <h4 className="font-bold mb-1 text-sm">Relatório Final</h4>
                   <p className="text-blue-100 text-sm">
                     Receba insights detalhados e sua taxa de sucesso estimada
                   </p>
@@ -223,27 +214,19 @@ export default function EB2NIWPage() {
             </div>
 
             {/* Disclaimer */}
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg mt-8">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <span className="text-2xl">⚠️</span>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-lg font-medium text-yellow-800">
-                    Importante - Disclaimer Legal
-                  </h3>
-                  <div className="mt-2 text-sm text-yellow-700">
-                    <p className="mb-2">
-                      Esta ferramenta fornece análise educacional baseada em casos históricos e não 
-                      constitui aconselhamento jurídico. Os resultados são estimativas baseadas em 
-                      padrões identificados pela IA e não garantem aprovação ou negação do seu caso.
-                    </p>
-                    <p>
-                      Recomendamos sempre consultar um advogado especializado em imigração para 
-                      orientação específica sobre seu caso NIW.
-                    </p>
-                  </div>
-                </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mt-8 flex items-start gap-3">
+              <HiExclamationTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-amber-800 mb-1">Disclaimer Legal</h3>
+                <p className="text-amber-700 text-xs leading-relaxed mb-2">
+                  Esta ferramenta fornece análise educacional baseada em casos históricos e não
+                  constitui aconselhamento jurídico. Os resultados são estimativas baseadas em
+                  padrões identificados pela IA e não garantem aprovação ou negação do seu caso.
+                </p>
+                <p className="text-amber-700 text-xs leading-relaxed">
+                  Recomendamos sempre consultar um advogado especializado em imigração para
+                  orientação específica sobre seu caso NIW.
+                </p>
               </div>
             </div>
           </div>
