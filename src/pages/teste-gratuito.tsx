@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { FreeQuizData, FreeVisaResult } from './api/analyze-free';
 import { SUBSCRIPTION_PLANS, formatPrice, getStripe } from '../lib/stripe';
 import {
@@ -198,6 +200,7 @@ export default function TesteGratuitoPage() {
   const [quizStep, setQuizStep] = useState(0); // 0–3 within quiz
   const [loadingSubscribe, setLoadingSubscribe] = useState<string | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const leadDocId = useRef<string | null>(null); // Firestore doc ID do lead
 
   const [lead, setLead] = useState<LeadData>({
     fullName: '',
@@ -253,8 +256,27 @@ export default function TesteGratuitoPage() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  function handleLeadSubmit() {
+  async function handleLeadSubmit() {
     if (!validateLead()) return;
+
+    // Salva o lead imediatamente no Firestore (captura mesmo quem abandonar)
+    try {
+      const docRef = await addDoc(collection(db, 'leads'), {
+        fullName: lead.fullName,
+        email: lead.email,
+        whatsapp: lead.whatsapp,
+        age: Number(lead.age),
+        timeframe: lead.timeframe,
+        source: 'teste-gratuito',
+        status: 'lead',                 // lead → quiz_completed → converted
+        createdAt: serverTimestamp(),
+      });
+      leadDocId.current = docRef.id;
+    } catch (err) {
+      // Não bloquear o fluxo caso o Firestore falhe
+      console.error('[leads] Erro ao salvar lead:', err);
+    }
+
     setStep('quiz');
   }
 
@@ -278,17 +300,18 @@ export default function TesteGratuitoPage() {
       hasFamily: quiz.hasFamily,
     };
 
+    let analysisResult: FreeVisaResult;
+
     try {
       const res = await fetch('/api/analyze-free', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data: FreeVisaResult = await res.json();
-      setResult(data);
+      analysisResult = await res.json();
     } catch {
       // Fallback
-      setResult({
+      analysisResult = {
         topVisa: 'EB-2 NIW',
         topVisaScore: 68,
         secondVisa: 'H-1B',
@@ -298,7 +321,40 @@ export default function TesteGratuitoPage() {
         profileSummary: 'Perfil com boa formação acadêmica e experiência profissional.',
         topVisaReason:
           'Seu nível de educação e experiência se encaixam bem nos critérios do EB-2 NIW.',
-      });
+      };
+    }
+
+    setResult(analysisResult);
+
+    // Atualiza o doc do Firestore com as respostas do quiz + resultado da IA
+    if (leadDocId.current) {
+      try {
+        await updateDoc(doc(db, 'leads', leadDocId.current), {
+          // Questionário
+          education: quiz.education,
+          fieldOfStudy: quiz.fieldOfStudy,
+          occupation: quiz.occupation,
+          yearsOfExperience: quiz.yearsOfExperience,
+          englishLevel: quiz.englishLevel,
+          immigrationGoal: quiz.immigrationGoal,
+          savings: quiz.savings,
+          hasJobOffer: quiz.hasJobOffer,
+          hasFamily: quiz.hasFamily,
+          // Resultado da IA
+          topVisa: analysisResult.topVisa,
+          topVisaScore: analysisResult.topVisaScore,
+          secondVisa: analysisResult.secondVisa,
+          secondVisaScore: analysisResult.secondVisaScore,
+          thirdVisa: analysisResult.thirdVisa,
+          thirdVisaScore: analysisResult.thirdVisaScore,
+          profileSummary: analysisResult.profileSummary,
+          // Status
+          status: 'quiz_completed',
+          completedAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error('[leads] Erro ao atualizar lead com resultado:', err);
+      }
     }
 
     setStep('result');
