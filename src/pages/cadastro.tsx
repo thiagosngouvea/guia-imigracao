@@ -72,11 +72,10 @@ export default function Cadastro() {
             backgroundImage: 'radial-gradient(circle at 80% 20%, #6366F1, transparent 50%), radial-gradient(circle at 20% 80%, #3B82F6, transparent 40%)'
           }} />
           <div className="relative">
-            <div className="inline-flex items-center gap-2.5 mb-12">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <span className="text-white font-bold text-xs tracking-wider">ME</span>
+            <div className="mb-12">
+              <div className="inline-block bg-white rounded-2xl px-4 py-3 shadow-lg">
+                <img src="/logo.png" alt="MoveEasy Immigration" className="h-14 w-auto object-contain" />
               </div>
-              <span className="text-xl font-bold">Move<span className="text-blue-300">Easy</span></span>
             </div>
             <h2 className="text-4xl font-bold leading-tight mb-4">
               Comece sua jornada<br />rumo aos EUA
