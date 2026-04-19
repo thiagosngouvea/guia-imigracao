@@ -9,13 +9,23 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+// IMPORTANTE: desabilitar o bodyParser para ler o raw body
+// necessário para verificar a assinatura do Stripe
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
+    bodyParser: false,
   },
 };
+
+// Lê o body como Buffer (necessário para stripe.webhooks.constructEvent)
+async function getRawBody(req: NextApiRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -26,8 +36,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let event: Stripe.Event;
 
   try {
-    const body = JSON.stringify(req.body);
-    event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
+    const rawBody = await getRawBody(req);
+    event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
     return res.status(400).json({ error: 'Invalid signature' });
@@ -81,8 +91,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (!userId) return;
 
   const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+  const planTierFromMeta = session.metadata?.planTier as string | undefined;
+  const planTypeFromMeta = session.metadata?.planType as string | undefined;
   
-  await updateUserSubscription(userId, subscription);
+  await updateUserSubscription(userId, subscription, planTypeFromMeta, planTierFromMeta);
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
@@ -127,25 +139,41 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   
   await updateDoc(doc(db, 'users', userId), {
     subscriptionStatus: 'canceled',
+    planTier: 'free',
     subscriptionEndDate: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 }
 
-async function updateUserSubscription(userId: string, subscription: Stripe.Subscription) {
+async function updateUserSubscription(
+  userId: string,
+  subscription: Stripe.Subscription,
+  planTypeOverride?: string,
+  planTierOverride?: string,
+) {
   const priceId = subscription.items.data[0]?.price.id;
-  let planType: 'monthly' | 'yearly' = 'monthly';
   
-  // Determine plan type based on price ID
-  if (priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID) {
-    planType = 'yearly';
-  }
+  // Resolve planType from price ID → env var mapping
+  const PRICE_MAP: Record<string, { planType: string; planTier: string }> = {
+    [process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID!]: { planType: 'pro_monthly', planTier: 'pro' },
+    [process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID!]: { planType: 'pro_yearly', planTier: 'pro' },
+    [process.env.NEXT_PUBLIC_STRIPE_EXPERT_MONTHLY_PRICE_ID!]: { planType: 'expert_monthly', planTier: 'expert' },
+    [process.env.NEXT_PUBLIC_STRIPE_EXPERT_YEARLY_PRICE_ID!]: { planType: 'expert_yearly', planTier: 'expert' },
+    // Legacy price IDs
+    [process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID!]: { planType: 'monthly', planTier: 'pro' },
+    [process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID!]: { planType: 'yearly', planTier: 'pro' },
+  };
+
+  const resolved = priceId ? PRICE_MAP[priceId] : undefined;
+  const planType = planTypeOverride || resolved?.planType || 'monthly';
+  const planTier = planTierOverride || resolved?.planTier || 'pro';
   
   await updateDoc(doc(db, 'users', userId), {
     subscriptionId: subscription.id,
     subscriptionStatus: subscription.status,
     subscriptionEndDate: new Date((subscription as any).current_period_end * 1000),
     planType,
+    planTier,
     updatedAt: serverTimestamp(),
   });
 }

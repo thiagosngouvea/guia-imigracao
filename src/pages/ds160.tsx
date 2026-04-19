@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
+import { PlanGate } from '../components/PlanGate';
 import { HiUser, HiIdentification, HiLocationMarker, HiPaperAirplane, HiBriefcase } from 'react-icons/hi';
 import { HiArrowLeft, HiArrowRight, HiExclamationTriangle, HiInformationCircle } from 'react-icons/hi2';
 import { FiDownload, FiTrash2, FiCheckCircle } from 'react-icons/fi';
@@ -515,6 +516,10 @@ export default function DS160Helper() {
   return (
     <SubscriptionGuard>
       <Layout>
+        <PlanGate
+          feature="canAccessDS160"
+          message="Preencha o formulário DS-160 com nosso assistente inteligente e organize todas as informações antes de ir ao site oficial."
+        >
         <div className="py-10 px-4" style={{ background: 'linear-gradient(135deg, #F0F7FF 0%, #F8FAFC 50%, #F0F4FF 100%)' }}>
           <div className="mx-auto max-w-3xl">
             {/* Header */}
@@ -675,6 +680,7 @@ export default function DS160Helper() {
             </div>
           </div>
         </div>
+        </PlanGate>
       </Layout>
     </SubscriptionGuard>
   );

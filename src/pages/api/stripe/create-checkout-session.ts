@@ -1,7 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
 import { SUBSCRIPTION_PLANS, PlanType } from '../../../lib/stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -14,9 +12,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { planType, userId } = req.body as {
+    const { planType, userId, email, name } = req.body as {
       planType: PlanType;
       userId: string;
+      email?: string;
+      name?: string;
     };
 
     if (!planType || !userId) {
@@ -27,57 +27,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid plan type' });
     }
 
-    // Get user profile
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userData = userDoc.data();
     const plan = SUBSCRIPTION_PLANS[planType];
 
-    // Create or get Stripe customer
-    let customerId = userData.stripeCustomerId;
-    
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: userData.email,
-        name: userData.name,
-        metadata: {
-          firebaseUid: userId,
-        },
-      });
-      
-      customerId = customer.id;
-      
-      // Update user with Stripe customer ID
-      await updateDoc(doc(db, 'users', userId), {
-        stripeCustomerId: customerId,
-      });
+    if (!plan.stripePriceId) {
+      return res.status(500).json({ error: 'Price ID not configured. Check NEXT_PUBLIC_STRIPE_*_PRICE_ID env vars.' });
     }
 
-    // Create checkout session
+    // Busca ou cria o customer no Stripe usando o email
+    let customerId: string | undefined;
+
+    if (email) {
+      const existing = await stripe.customers.list({ email, limit: 1 });
+      if (existing.data.length > 0) {
+        customerId = existing.data[0].id;
+        // Garante que o metadata do Stripe tem o UID correto
+        if (!existing.data[0].metadata?.firebaseUid) {
+          await stripe.customers.update(customerId, {
+            metadata: { firebaseUid: userId },
+          });
+        }
+      }
+    }
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: email || undefined,
+        name: name || undefined,
+        metadata: { firebaseUid: userId },
+      });
+      customerId = customer.id;
+    }
+
+    // Cria a sessao de checkout
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price: plan.stripePriceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?canceled=true`,
-      metadata: {
-        userId,
-        planType,
-      },
+      locale: 'pt-BR',
+      success_url: `${baseUrl}/dashboard?success=true`,
+      cancel_url: `${baseUrl}/subscription?canceled=true`,
+      metadata: { userId, planType, planTier: plan.tier },
+      // Pre-preenche o email na pagina do Stripe
+      customer_update: { address: 'auto' },
     });
 
-    res.status(200).json({ sessionId: session.id });
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(200).json({ sessionId: session.id });
+  } catch (error: any) {
+    console.error('Error creating checkout session:', error?.message || error);
+    return res.status(500).json({
+      error: error?.message || 'Internal server error',
+    });
   }
 }

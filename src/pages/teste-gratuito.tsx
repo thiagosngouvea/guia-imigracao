@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { FreeQuizData, FreeVisaResult } from './api/analyze-free';
-import { SUBSCRIPTION_PLANS, formatPrice, getStripe } from '../lib/stripe';
+import { SUBSCRIPTION_PLANS, formatPrice } from '../lib/stripe';
 import {
   HiUser,
   HiAcademicCap,
@@ -362,8 +362,14 @@ export default function TesteGratuitoPage() {
 
   async function handleSubscribe(planId: 'monthly' | 'yearly') {
     setLoadingSubscribe(planId);
-    // Redirect to register page with plan pre-selected in query
-    router.push(`/cadastro?plan=${planId}&from=quiz&name=${encodeURIComponent(lead.fullName)}&email=${encodeURIComponent(lead.email)}`);
+    // Leva para cadastro com o plano e dados do lead em query params.
+    // O cadastro.tsx vai ler esses params e iniciar o checkout Stripe logo após o registro.
+    router.push(
+      `/cadastro?plan=${planId}` +
+      `&from=quiz` +
+      `&name=${encodeURIComponent(lead.fullName)}` +
+      `&email=${encodeURIComponent(lead.email)}`
+    );
   }
 
   // ── Render steps ────────────────────────────────────────────────────────────

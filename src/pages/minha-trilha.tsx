@@ -5,6 +5,7 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
+import { PlanGate } from '../components/PlanGate';
 import {
   getVisaPath, createVisaPath, updateStepCompletion, updateSubtaskCompletion,
   VisaPathData, VisaPathStep,
@@ -228,6 +229,10 @@ export default function MinhaTrilhaPage() {
           </div>
         )}
 
+        <PlanGate
+          feature="canAccessMinhaTrilha"
+          message="Acompanhe todas as etapas da sua jornada de imigração com nossa trilha personalizada passo a passo."
+        >
         <div className="py-10 px-4" style={{ background: 'linear-gradient(135deg, #F0F7FF 0%, #F8FAFC 60%, #F5F0FF 100%)' }}>
           <div className="mx-auto max-w-2xl">
 
@@ -290,6 +295,7 @@ export default function MinhaTrilhaPage() {
 
           </div>
         </div>
+        </PlanGate>
       </Layout>
     </SubscriptionGuard>
   );

@@ -18,11 +18,43 @@ const GoogleIcon = () => (
 );
 
 export default function Cadastro() {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const router = useRouter();
+  const { plan, name: queryName, email: queryEmail } = router.query as {
+    plan?: 'monthly' | 'yearly';
+    name?: string;
+    email?: string;
+  };
+  const fromQuiz = !!plan;
+
+  const [formData, setFormData] = useState({
+    name: queryName || '',
+    email: queryEmail || '',
+    password: '',
+    confirmPassword: '',
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const router = useRouter();
+
+  async function startCheckout(userId: string, planType: 'monthly' | 'yearly') {
+    const { getStripe } = await import('../lib/stripe');
+    const response = await fetch('/api/stripe/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        planType,
+        userId,
+        email: formData.email || queryEmail,
+        name: formData.name || queryName,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Falha ao criar sessão de pagamento');
+    }
+    const stripe = await getStripe();
+    if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +68,11 @@ export default function Cadastro() {
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Senhas não coincidem';
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsLoading(false); return; }
     try {
-      await signUp(formData.email, formData.password, formData.name);
+      const user = await signUp(formData.email, formData.password, formData.name);
+      if (fromQuiz && plan && user?.uid) {
+        await startCheckout(user.uid, plan);
+        return;
+      }
       router.push('/questionario');
     } catch (error: any) {
       setErrors({ general: error.message });
@@ -49,7 +85,11 @@ export default function Cadastro() {
     setIsGoogleLoading(true);
     setErrors({});
     try {
-      await signInWithGoogle();
+      const user = await signInWithGoogle();
+      if (fromQuiz && plan && user?.uid) {
+        await startCheckout(user.uid, plan);
+        return;
+      }
       router.push('/questionario');
     } catch (error: any) {
       setErrors({ general: error.message });
@@ -78,10 +118,12 @@ export default function Cadastro() {
               </div>
             </div>
             <h2 className="text-4xl font-bold leading-tight mb-4">
-              Comece sua jornada<br />rumo aos EUA
+              {fromQuiz ? 'Quase lá! Crie sua conta\npara acessar o plano' : 'Comece sua jornada\nrumo aos EUA'}
             </h2>
             <p className="text-blue-200 text-lg leading-relaxed">
-              Crie sua conta gratuita e receba um plano personalizado para o seu processo de imigração.
+              {fromQuiz
+                ? 'Crie sua conta e finalize a assinatura para ter acesso completo à sua trilha personalizada.'
+                : 'Crie sua conta gratuita e receba um plano personalizado para o seu processo de imigração.'}
             </p>
           </div>
           <div className="relative">
@@ -107,10 +149,15 @@ export default function Cadastro() {
         <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white overflow-y-auto">
           <div className="w-full max-w-sm animate-fade-in">
             <div className="mb-8">
+              {fromQuiz && (
+                <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+                  ✨ Plano {plan === 'yearly' ? 'Anual' : 'Mensal'} selecionado
+                </div>
+              )}
               <h1 className="text-2xl font-bold text-slate-900 mb-1">Criar conta gratuita</h1>
               <p className="text-slate-500 text-sm">
                 Já tem uma conta?{' '}
-                <Link href="/login" className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                <Link href={fromQuiz ? `/login?plan=${plan}` : '/login'} className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
                   Faça login
                 </Link>
               </p>
@@ -202,7 +249,8 @@ export default function Cadastro() {
               </label>
 
               <Button type="submit" className="w-full gap-2" size="lg" isLoading={isLoading}>
-                Criar conta grátis <HiArrowRight className="w-4 h-4" />
+                {fromQuiz ? 'Criar conta e assinar' : 'Criar conta grátis'}{' '}
+                <HiArrowRight className="w-4 h-4" />
               </Button>
             </form>
           </div>

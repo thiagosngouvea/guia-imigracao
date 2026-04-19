@@ -57,7 +57,14 @@ export interface UserProfile {
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing';
   subscriptionEndDate?: any;
-  planType?: 'monthly' | 'yearly';
+  planType?: 'monthly' | 'yearly' | 'pro_monthly' | 'pro_yearly' | 'expert_monthly' | 'expert_yearly' | 'pro' | 'expert';
+
+  // Plan tier derived from planType (free | pro | expert)
+  planTier?: 'free' | 'pro' | 'expert';
+
+  // Training usage tracking (reset monthly)
+  monthlyTrainingCount?: number;  // how many sessions used this month
+  lastTrainingReset?: any;        // Timestamp of last monthly reset
 }
 
   

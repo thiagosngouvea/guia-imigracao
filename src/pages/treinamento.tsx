@@ -5,11 +5,13 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
 import { InteractiveTraining } from '../components/InteractiveTraining';
-import { 
-  createTrainingSession, 
-  addMessageToSession, 
+import { PlanGate } from '../components/PlanGate';
+import { usePlanLimits } from '../hooks/usePlanLimits';
+import {
+  createTrainingSession,
+  addMessageToSession,
   finishTrainingSession,
-  TrainingMessage 
+  TrainingMessage
 } from '../lib/training-history';
 import { HiAcademicCap, HiGlobeAlt, HiDocumentText } from 'react-icons/hi';
 import { HiMicrophone, HiCpuChip, HiLanguage, HiChartBar, HiCheckBadge, HiExclamationTriangle } from 'react-icons/hi2';
@@ -147,13 +149,14 @@ const scenarios: InterviewScenario[] = [
 export default function Treinamento() {
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
+  const { planTier, limits, monthlyTrainingUsed, monthlyTrainingLeft, canStartTraining, incrementTrainingCount } = usePlanLimits();
   const [selectedScenario, setSelectedScenario] = useState<InterviewScenario | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [language, setLanguage] = useState<Language>('pt');
   const [interactionMode, setInteractionMode] = useState<InteractionMode>('text');
   const [hoveredScenario, setHoveredScenario] = useState<string | null>(null);
-  
+
   // Estado para controlar a sessão de treinamento
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isSavingSession, setIsSavingSession] = useState(false);
@@ -166,7 +169,7 @@ export default function Treinamento() {
   // Função para salvar mensagem na sessão atual
   const saveMessageToSession = async (message: Message) => {
     if (!currentSessionId || !user) return;
-    
+
     try {
       // Criar objeto base com campos obrigatórios
       const trainingMessage: Omit<TrainingMessage, 'id'> = {
@@ -174,16 +177,16 @@ export default function Treinamento() {
         content: message.content,
         timestamp: message.timestamp
       };
-      
+
       // Adicionar campos opcionais apenas se não forem undefined
       if (message.isVoice !== undefined) {
         trainingMessage.isVoice = message.isVoice;
       }
-      
+
       if (message.isThinking !== undefined) {
         trainingMessage.isThinking = message.isThinking;
       }
-      
+
       await addMessageToSession(currentSessionId, trainingMessage);
     } catch (error) {
       console.error('Erro ao salvar mensagem:', error);
@@ -195,7 +198,7 @@ export default function Treinamento() {
   const getRelevantScenarios = () => {
     const currentVisa = getCurrentVisa();
     if (!currentVisa) return scenarios;
-    
+
     const relevantScenarios = scenarios.filter(scenario => {
       const visaMapping: Record<string, string[]> = {
         'B1/B2': ['B1/B2'],
@@ -204,11 +207,11 @@ export default function Treinamento() {
         'EB5': ['EB5'],
         'O1': ['O1']
       };
-      
+
       const allowedTypes = visaMapping[currentVisa] || [];
       return allowedTypes.includes(scenario.visaType);
     });
-    
+
     return relevantScenarios.length > 0 ? relevantScenarios : scenarios;
   };
 
@@ -221,10 +224,14 @@ export default function Treinamento() {
 
   const startInterview = async (scenario: InterviewScenario) => {
     if (!user) return;
-    
+    if (!canStartTraining) return;
+
     setIsSavingSession(true);
-    
+
     try {
+      // Incrementar contador de treinamentos do mês
+      await incrementTrainingCount();
+
       // Criar nova sessão no Firebase
       const sessionId = await createTrainingSession(
         user.uid,
@@ -235,7 +242,7 @@ export default function Treinamento() {
         language,
         interactionMode
       );
-      
+
       setCurrentSessionId(sessionId);
       setSelectedScenario(scenario);
       setCurrentQuestionIndex(0);
@@ -254,18 +261,18 @@ export default function Treinamento() {
     if (currentSessionId && selectedScenario) {
       try {
         const completed = currentQuestionIndex >= selectedScenario.questions[language].length - 1;
-        
+
         await finishTrainingSession(
-          currentSessionId, 
-          currentQuestionIndex + 1, 
-          selectedScenario.questions[language].length, 
+          currentSessionId,
+          currentQuestionIndex + 1,
+          selectedScenario.questions[language].length,
           completed
         );
       } catch (error) {
         console.error('Erro ao finalizar sessão:', error);
       }
     }
-    
+
     setSelectedScenario(null);
     setCurrentQuestionIndex(0);
     setInterviewStarted(false);
@@ -317,7 +324,38 @@ export default function Treinamento() {
     <SubscriptionGuard>
       <Layout>
         <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #F0F7FF 0%, #F8FAFC 50%, #EEF2FF 100%)' }}>
-          {/* Hero */}
+          {/* ── Plan usage banner ─────────────────────────── */}
+          {limits.canAccessTraining && limits.monthlyTrainingSessions > 0 && (
+            <div className={`border-b px-4 py-2.5 ${monthlyTrainingLeft === 0
+              ? 'bg-red-50 border-red-200'
+              : monthlyTrainingLeft <= 1
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-blue-50 border-blue-100'
+              }`}>
+              <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <HiAcademicCap className={`w-4 h-4 ${monthlyTrainingLeft === 0 ? 'text-red-500' :
+                    monthlyTrainingLeft <= 1 ? 'text-amber-500' : 'text-blue-500'
+                    }`} />
+                  <span className={`font-medium ${monthlyTrainingLeft === 0 ? 'text-red-700' :
+                    monthlyTrainingLeft <= 1 ? 'text-amber-700' : 'text-blue-700'
+                    }`}>
+                    {monthlyTrainingLeft === 0
+                      ? 'Limite mensal atingido'
+                      : `${monthlyTrainingUsed} de ${limits.monthlyTrainingSessions} treinamentos usados este mês`}
+                  </span>
+                </div>
+                {monthlyTrainingLeft === 0 && (
+                  <button
+                    onClick={() => router.push('/subscription')}
+                    className="text-xs font-semibold bg-blue-600 text-white px-3 py-1 rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    Fazer Upgrade
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="relative overflow-hidden">
             <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
               <div className="text-center">
@@ -361,11 +399,10 @@ export default function Treinamento() {
                     <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
                       {(['pt', 'en'] as const).map(lang => (
                         <button key={lang} onClick={() => setLanguage(lang)}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            language === lang
-                              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
-                              : 'text-slate-600 hover:bg-white'
-                          }`}>
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${language === lang
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
+                            : 'text-slate-600 hover:bg-white'
+                            }`}>
                           {lang === 'pt' ? '🇧🇷 Português' : '🇺🇸 English'}
                         </button>
                       ))}
@@ -378,11 +415,10 @@ export default function Treinamento() {
                     <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
                       {(['text', 'voice'] as const).map(mode => (
                         <button key={mode} onClick={() => setInteractionMode(mode)}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            interactionMode === mode
-                              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md scale-105'
-                              : 'text-slate-600 hover:bg-white'
-                          }`}>
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${interactionMode === mode
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md scale-105'
+                            : 'text-slate-600 hover:bg-white'
+                            }`}>
                           {mode === 'text'
                             ? <><HiDocumentText className="w-4 h-4" /> Texto</>
                             : <><HiMicrophone className="w-4 h-4" /> Voz</>}
@@ -391,7 +427,7 @@ export default function Treinamento() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Current Visa Status */}
                 {currentVisa && (
                   <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-full shadow-lg mb-8 text-sm font-semibold">
@@ -402,7 +438,7 @@ export default function Treinamento() {
                     )}
                   </div>
                 )}
-                
+
                 {!currentVisa && (
                   <div className="inline-flex flex-col items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-6 max-w-sm mx-auto mb-8">
                     <HiExclamationTriangle className="w-8 h-8 text-amber-500" />
@@ -430,67 +466,82 @@ export default function Treinamento() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
-              {relevantScenarios.map((scenario) => {
-                const isRecommended = currentVisa && scenario.visaType === currentVisa;
-                return (
-                  <div
-                    key={scenario.id}
-                    className={`group relative bg-white rounded-2xl overflow-hidden border transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${
-                      isSavingSession ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                    } ${isRecommended ? 'border-blue-400 ring-2 ring-blue-400/30' : 'border-slate-200'}`}
-                    onClick={() => !isSavingSession && startInterview(scenario)}
-                  >
-                    {/* Gradient hover bg */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${scenario.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                    
-                    {/* Recommended Badge */}
-                    {isRecommended && (
-                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-semibold z-10">
-                        <HiCheckBadge className="w-3.5 h-3.5" /> Recomendado
-                      </div>
-                    )}
-                    
-                    <div className="p-6">
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${scenario.color} flex items-center justify-center text-white mb-5 shadow-md group-hover:scale-110 transition-transform duration-200`}>
-                        {SCENARIO_ICONS[scenario.id]}
-                      </div>
-                      
-                      <div className="flex justify-between items-start mb-3">
-                        <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                          {scenario.name}
-                        </h3>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          scenario.difficulty === 'Iniciante' ? 'bg-emerald-100 text-emerald-700' :
-                          scenario.difficulty === 'Intermediário' ? 'bg-amber-100 text-amber-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>{scenario.difficulty}</span>
-                      </div>
-                      
-                      <p className="text-slate-500 text-sm mb-5 leading-relaxed">{scenario.description}</p>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">{scenario.visaType}</span>
-                        <div className="flex items-center gap-3 text-xs text-slate-400">
-                          <span className="flex items-center gap-1"><HiCpuChip className="w-3.5 h-3.5" /> IA</span>
-                          <span className="flex items-center gap-1"><HiMicrophone className="w-3.5 h-3.5" /> Voz</span>
-                          <span className="flex items-center gap-1"><HiLanguage className="w-3.5 h-3.5" /> {scenario.questions[language].length}p</span>
+            <PlanGate
+              feature="canAccessTraining"
+              message="Treine sua entrevista de visto com IA. Simule perguntas reais do consulado e receba feedback personalizado."
+            >
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
+                {relevantScenarios.map((scenario) => {
+                  const isRecommended = currentVisa && scenario.visaType === currentVisa;
+                  const isAdvanced = scenario.difficulty === 'Avançado';
+                  const isLocked = isAdvanced && !limits.canAccessAdvancedScenarios;
+                  const isVoiceAvailable = limits.canAccessVoiceMode;
+                  return (
+                    <div
+                      key={scenario.id}
+                      className={`group relative flex flex-col bg-white rounded-2xl overflow-hidden border transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${isSavingSession || !canStartTraining || isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                        } ${isRecommended ? 'border-blue-400 ring-2 ring-blue-400/30' : 'border-slate-200'}`}
+                      onClick={() => !isSavingSession && canStartTraining && !isLocked && startInterview(scenario)}
+                    >
+                      {/* Gradient hover bg */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${scenario.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+
+                      {/* Recommended Badge */}
+                      {isRecommended && (
+                        <div className="absolute top-3 right-3 flex items-center gap-1 bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-semibold z-10">
+                          <HiCheckBadge className="w-3.5 h-3.5" /> Recomendado
+                        </div>
+                      )}
+
+                      {/* Expert lock badge */}
+                      {isLocked && (
+                        <div className="absolute top-3 left-3 flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full text-xs font-semibold z-10">
+                          🚀 Expert
+                        </div>
+                      )}
+
+                      <div className="p-6">
+                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${scenario.color} flex items-center justify-center text-white mb-5 shadow-md group-hover:scale-110 transition-transform duration-200`}>
+                          {SCENARIO_ICONS[scenario.id]}
+                        </div>
+
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                            {scenario.name}
+                          </h3>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${scenario.difficulty === 'Iniciante' ? 'bg-emerald-100 text-emerald-700' :
+                            scenario.difficulty === 'Intermediário' ? 'bg-amber-100 text-amber-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>{scenario.difficulty}</span>
+                        </div>
+
+                        <p className="text-slate-500 text-sm mb-5 leading-relaxed">{scenario.description}</p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">{scenario.visaType}</span>
+                          <div className="flex items-center gap-3 text-xs text-slate-400">
+                            <span className="flex items-center gap-1"><HiCpuChip className="w-3.5 h-3.5" /> IA</span>
+                            <span className={`flex items-center gap-1 ${!isVoiceAvailable ? 'opacity-40' : ''}`}>
+                              <HiMicrophone className="w-3.5 h-3.5" /> Voz{!isVoiceAvailable ? ' 🔒' : ''}
+                            </span>
+                            <span className="flex items-center gap-1"><HiLanguage className="w-3.5 h-3.5" /> {scenario.questions[language].length}p</span>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Bottom gradient bar */}
+                      <div className={`mt-auto h-1 bg-gradient-to-r ${scenario.color} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
+
+                      {isSavingSession && (
+                        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
                     </div>
-                    
-                    {/* Bottom gradient bar */}
-                    <div className={`h-1 bg-gradient-to-r ${scenario.color} scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
-                    
-                    {isSavingSession && (
-                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </PlanGate>
           </div>
 
           {/* Features */}
