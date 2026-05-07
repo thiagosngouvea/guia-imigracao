@@ -34,6 +34,15 @@ service cloud.firestore {
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
+
+      // Subcoleção de histórico de créditos
+      // Leitura: o próprio usuário ou admin
+      // Escrita: o próprio usuário (via runTransaction no credits.ts) ou admin
+      match /creditHistory/{txId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) || isAdmin();
+        allow update, delete: if false; // transacões são imutáveis
+      }
     }
 
     // ============================================================
@@ -156,6 +165,19 @@ service cloud.firestore {
       allow delete: if isAuthenticated() &&
         resource != null &&
         resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Leads collection (captura de leads do teste-gratuito.tsx)
+    // Qualquer pessoa pode criar (não requer login)
+    // Somente admins podem ler e atualizar
+    // ============================================================
+    match /leads/{leadId} {
+      allow create: if true; // público — para capturar leads sem conta
+      allow read, update: if isAuthenticated() && (
+        resource != null && resource.data.email == request.auth.token.email
+      ) || isAdmin();
+      allow delete: if false;
     }
 
   }

@@ -1,9 +1,10 @@
 import Link from 'next/link';
+import { HiUser } from 'react-icons/hi';
 import { useRouter } from 'next/router';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
-import { useSubscription } from '../../hooks/useSubscription';
-import { HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
+import { useCredits } from '../../hooks/useCredits';
+import { CreditBadge } from './CreditBadge';
 
 interface HeaderProps {
   theme?: 'dark' | 'light';
@@ -11,19 +12,14 @@ interface HeaderProps {
 
 export function Header({ theme = 'dark' }: HeaderProps) {
   const { user, userProfile, logout } = useAuth();
-  const { hasActiveSubscription, isAdmin } = useSubscription();
+  const { isAdmin } = useCredits();
   const router = useRouter();
 
   const isDark = theme === 'dark';
 
   const navLinks = user ? [
     { href: '/dashboard',   label: 'Dashboard' },
-    { href: '/questionario', label: 'Questionário' },
-    { href: '/ds160',        label: 'DS-160' },
     { href: '/treinamento',  label: 'Treino IA' },
-    { href: '/eb2-niw',      label: 'EB2 NIW' },
-    { href: '/vistos',       label: 'Vistos' },
-    ...(!isAdmin ? [{ href: '/subscription', label: 'Assinatura' }] : []),
   ] : [
     { href: '/#features', label: 'Funcionalidades' },
     { href: '/#benefits', label: 'Vantagens' },
@@ -84,39 +80,21 @@ export function Header({ theme = 'dark' }: HeaderProps) {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Subscription badge */}
-                {!isAdmin && (
-                  hasActiveSubscription ? (
-                    <span className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                      isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
-                    }`}>
-                      <HiCheckCircle className="w-3.5 h-3.5" />
-                      Ativo
-                    </span>
-                  ) : (
-                    <Link href="/subscription">
-                      <span className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                        isDark
-                          ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'
-                          : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                      }`}>
-                        <HiExclamationCircle className="w-3.5 h-3.5" />
-                        Assinar
-                      </span>
-                    </Link>
-                  )
-                )}
+                {/* Badge de créditos (substitui badge de assinatura) */}
+                <CreditBadge theme={theme} />
 
-                {/* User avatar */}
-                <div className={`flex items-center gap-2 px-2 py-1 rounded-lg ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {initials}
+                {/* User avatar — links to profile */}
+                <Link href="/perfil">
+                  <div className={`flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-colors ${isDark ? 'text-slate-300 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'}`}>
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {initials}
+                    </div>
+                    <span className="hidden sm:block text-sm font-medium">
+                      {displayName.split(' ')[0]}
+                      {isAdmin && <span className="ml-1 text-blue-400 text-xs">(Admin)</span>}
+                    </span>
                   </div>
-                  <span className="hidden sm:block text-sm font-medium">
-                    {displayName.split(' ')[0]}
-                    {isAdmin && <span className="ml-1 text-blue-400 text-xs">(Admin)</span>}
-                  </span>
-                </div>
+                </Link>
 
                 <button
                   onClick={logout}

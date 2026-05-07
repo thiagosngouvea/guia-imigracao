@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { FreeQuizData, FreeVisaResult } from './api/analyze-free';
-import { SUBSCRIPTION_PLANS, formatPrice } from '../lib/stripe';
+import { CREDIT_PACKAGES, formatPrice } from '../lib/stripe';
 import {
   HiUser,
   HiAcademicCap,
@@ -1010,8 +1010,10 @@ export default function TesteGratuitoPage() {
 
                 {/* Pricing cards */}
                 <div className="grid md:grid-cols-2 gap-5 mb-8">
-                  {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => {
-                    const isPopular = key === 'yearly';
+                  {Object.entries(CREDIT_PACKAGES)
+                    .filter(([key]) => key === 'popular' || key === 'pro')
+                    .map(([key, pkg]) => {
+                    const isPopular = pkg.highlight;
                     return (
                       <div
                         key={key}
@@ -1022,28 +1024,26 @@ export default function TesteGratuitoPage() {
                         {isPopular && (
                           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold uppercase tracking-widest px-4 py-2 text-center flex items-center justify-center gap-1.5">
                             <HiStar className="w-3.5 h-3.5" />
-                            Mais Popular — Economize 2 meses
+                            Mais Popular
                           </div>
                         )}
                         <div className="p-7">
-                          <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
-                          <p className="text-slate-500 text-sm mb-5">{plan.description}</p>
+                          <h3 className="text-lg font-bold text-slate-900 mb-1">{pkg.emoji} {pkg.name}</h3>
+                          <p className="text-slate-500 text-sm mb-5">{pkg.tagline} — {pkg.totalCredits} créditos</p>
                           <div className="mb-5">
                             <span className="text-4xl font-extrabold text-slate-900">
-                              {formatPrice(plan.price)}
+                              {formatPrice(pkg.price)}
                             </span>
-                            <span className="text-slate-500 ml-1 text-sm">
-                              /{plan.interval === 'month' ? 'mês' : 'ano'}
-                            </span>
+                            <span className="text-slate-500 ml-1 text-sm">pagamento único</span>
                           </div>
                           <ul className="space-y-2.5 mb-7">
                             {[
-                              'Trilha personalizada de visto',
-                              'Simulação de entrevista com IA',
+                              `${pkg.totalCredits} créditos (sem expiração)`,
+                              `≈ ${Math.floor(pkg.totalCredits / 5)} treinos de entrevista com IA`,
                               'Assistente DS-160',
                               'Análise EB-2 NIW',
-                              'Checklists e documentação',
-                              'Suporte prioritário',
+                              'Trilha personalizada de visto',
+                              'Sem assinatura recorrente',
                             ].map((f) => (
                               <li key={f} className="flex items-center gap-2 text-sm text-slate-700">
                                 <HiCheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -1052,8 +1052,8 @@ export default function TesteGratuitoPage() {
                             ))}
                           </ul>
                           <button
-                            id={`subscribe-${key}-btn`}
-                            onClick={() => handleSubscribe(key as 'monthly' | 'yearly')}
+                            id={`buy-credits-${key}-btn`}
+                            onClick={() => router.push(`/cadastro?from=quiz&name=${encodeURIComponent(lead.fullName)}&email=${encodeURIComponent(lead.email)}`)}
                             disabled={!!loadingSubscribe}
                             className={`w-full inline-flex items-center justify-center gap-2 font-bold text-sm rounded-xl px-5 py-3.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] ${
                               isPopular
@@ -1061,14 +1061,8 @@ export default function TesteGratuitoPage() {
                                 : 'bg-slate-900 text-white hover:bg-slate-800'
                             }`}
                           >
-                            {loadingSubscribe === key ? (
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <>
-                                Assinar agora
-                                <HiArrowRight className="w-4 h-4" />
-                              </>
-                            )}
+                            Começar agora
+                            <HiArrowRight className="w-4 h-4" />
                           </button>
                         </div>
                       </div>

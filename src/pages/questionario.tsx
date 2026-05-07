@@ -1,12 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
-import { saveQuestionnaire, analyzeProfile, QuestionnaireData } from '../lib/visa-service';
+import {
+  saveQuestionnaire,
+  analyzeProfile,
+  getQuestionnaire,
+  QuestionnaireData,
+} from '../lib/visa-service';
 import { HiUser, HiAcademicCap, HiGlobeAlt, HiCurrencyDollar } from 'react-icons/hi';
-import { HiArrowRight, HiArrowLeft, HiCheckBadge, HiRocketLaunch } from 'react-icons/hi2';
+import {
+  HiArrowRight,
+  HiArrowLeft,
+  HiCheckBadge,
+  HiRocketLaunch,
+  HiSparkles,
+  HiArrowPath,
+  HiExclamationTriangle,
+} from 'react-icons/hi2';
 import { FiCheckCircle } from 'react-icons/fi';
 
 const EDUCATION_OPTIONS = [
@@ -36,6 +49,33 @@ const TIMEFRAME_OPTIONS = [
   { value: '2-years', label: '2 anos ou mais' },
 ];
 
+const EDUCATION_LABELS: Record<string, string> = {
+  'high-school': 'Ensino Médio',
+  bachelor: 'Bacharelado',
+  master: 'Mestrado',
+  phd: 'Doutorado',
+};
+const ENGLISH_LABELS: Record<string, string> = {
+  none: 'Nenhum',
+  basic: 'Básico',
+  intermediate: 'Intermediário',
+  advanced: 'Avançado',
+  fluent: 'Fluente',
+};
+const GOAL_LABELS: Record<string, string> = {
+  work: 'Trabalho',
+  study: 'Estudo',
+  investment: 'Investimento',
+  family: 'Reunificação Familiar',
+  other: 'Outro',
+};
+const TIMEFRAME_LABELS: Record<string, string> = {
+  immediate: 'Imediato (< 6 meses)',
+  '6-months': '6 meses',
+  '1-year': '1 ano',
+  '2-years': '2 anos ou mais',
+};
+
 const steps = [
   { label: 'Pessoal', icon: <HiUser className="w-4 h-4" /> },
   { label: 'Formação', icon: <HiAcademicCap className="w-4 h-4" /> },
@@ -48,13 +88,153 @@ const selectCls = inputCls + ' appearance-none cursor-pointer';
 const labelCls = 'block text-sm font-medium text-slate-700 mb-1.5';
 const fieldCls = 'mb-5';
 
-export default function Questionario() {
-  const { user, refreshUserProfile } = useAuth();
+// ─── Result Screen ────────────────────────────────────────────────────────────
+function ResultScreen({
+  userProfile,
+  savedData,
+  onRedo,
+}: {
+  userProfile: any;
+  savedData: QuestionnaireData | null;
+  onRedo: () => void;
+}) {
   const router = useRouter();
+  const [confirmRedo, setConfirmRedo] = useState(false);
+
+  const visa = userProfile?.recommendedVisa || userProfile?.selectedVisa || '—';
+  const name = savedData?.fullName || userProfile?.fullName || userProfile?.displayName || userProfile?.name || '';
+  const education = savedData?.education ? EDUCATION_LABELS[savedData.education] : '—';
+  const english = savedData?.englishLevel ? ENGLISH_LABELS[savedData.englishLevel] : '—';
+  const goal = savedData?.immigrationGoal ? GOAL_LABELS[savedData.immigrationGoal] : (userProfile?.immigrationGoal ? GOAL_LABELS[userProfile.immigrationGoal] : '—');
+  const timeframe = savedData?.timeframe ? TIMEFRAME_LABELS[savedData.timeframe] : '—';
+  const occupation = savedData?.occupation || userProfile?.occupation || '—';
+
+  return (
+    <div className="py-10 px-4 min-h-[calc(100vh-4rem)]" style={{ background: 'linear-gradient(135deg, #F0FFF4 0%, #F8FAFC 50%, #EEF2FF 100%)' }}>
+      <div className="mx-auto max-w-2xl">
+
+        {/* Header */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-semibold mb-4">
+            <FiCheckCircle className="w-4 h-4" /> Questionário concluído
+          </div>
+          <h1 className="text-3xl font-bold text-slate-900">Seu Perfil de Imigração</h1>
+          <p className="text-slate-500 mt-2 text-sm">
+            {name ? `Olá, ${name.split(' ')[0]}! ` : ''}Veja abaixo a análise do seu perfil.
+          </p>
+        </div>
+
+        {/* Visa recommendation card */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 rounded-2xl p-8 text-white shadow-xl mb-6 animate-scale-in">
+          <div className="absolute inset-0 opacity-20" style={{
+            backgroundImage: 'radial-gradient(circle at 70% 30%, #6366F1, transparent 60%)'
+          }} />
+          <div className="relative flex items-start justify-between gap-6">
+            <div>
+              <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <HiSparkles className="w-3.5 h-3.5" /> Visto Recomendado pela IA
+              </p>
+              <h2 className="text-5xl font-black mb-2 tracking-tight">{visa}</h2>
+              <p className="text-blue-200 text-sm">Baseado nas suas respostas e análise de perfil</p>
+            </div>
+            <div className="shrink-0 p-4 bg-white/10 rounded-2xl backdrop-blur-sm">
+              <HiCheckBadge className="w-10 h-10 text-emerald-400" />
+            </div>
+          </div>
+          <div className="relative mt-6">
+            <Button
+              onClick={() => router.push('/visa-path')}
+              className="gap-2 bg-white text-slate-900 hover:bg-blue-50 font-semibold"
+            >
+              Ver minha trilha <HiArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Profile summary */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6 animate-fade-in">
+          <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <HiUser className="w-4 h-4 text-blue-500" /> Resumo do Seu Perfil
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Profissão', value: occupation },
+              { label: 'Educação', value: education },
+              { label: 'Inglês', value: english },
+              { label: 'Objetivo', value: goal },
+              { label: 'Prazo', value: timeframe },
+              { label: 'Experiência', value: savedData?.yearsOfExperience ? `${savedData.yearsOfExperience} anos` : '—' },
+            ].map((item) => (
+              <div key={item.label} className="bg-slate-50 rounded-xl px-4 py-3">
+                <p className="text-xs text-slate-400 font-medium mb-0.5">{item.label}</p>
+                <p className="text-sm font-semibold text-slate-800">{item.value}</p>
+              </div>
+            ))}
+          </div>
+          {savedData?.hasJobOffer && (
+            <div className="mt-3 flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-xl px-4 py-3 text-sm">
+              <FiCheckCircle className="w-4 h-4 shrink-0" /> Possui oferta de emprego nos EUA
+            </div>
+          )}
+          {savedData?.hasFamily && (
+            <div className="mt-3 flex items-center gap-2 text-blue-700 bg-blue-50 rounded-xl px-4 py-3 text-sm">
+              <FiCheckCircle className="w-4 h-4 shrink-0" /> Tem família no país de destino
+            </div>
+          )}
+        </div>
+
+        {/* Redo section */}
+        {!confirmRedo ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Suas respostas mudaram?</p>
+              <p className="text-xs text-slate-400 mt-0.5">Você pode refazer o questionário a qualquer momento.</p>
+            </div>
+            <button
+              onClick={() => setConfirmRedo(true)}
+              className="shrink-0 flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-xl transition-all"
+            >
+              <HiArrowPath className="w-4 h-4" /> Refazer
+            </button>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <HiExclamationTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-sm font-semibold text-amber-800">Tem certeza?</p>
+            </div>
+            <p className="text-xs text-amber-700 mb-4 leading-relaxed">
+              Ao refazer, sua análise atual será substituída ao salvar o novo questionário.
+            </p>
+            <div className="flex gap-3">
+              <Button onClick={onRedo} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white border-0">
+                <HiArrowPath className="w-4 h-4" /> Sim, refazer
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmRedo(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function Questionario() {
+  const { user, userProfile, loading, refreshUserProfile } = useAuth();
+  const router = useRouter();
+
+  const [pageLoading, setPageLoading] = useState(true);
+  const [savedData, setSavedData] = useState<QuestionnaireData | null>(null);
+  const [showForm, setShowForm] = useState(false); // true = mostra form | false = mostra resultado (se já respondeu)
+  const [justCompleted, setJustCompleted] = useState(false); // acabou de preencher agora
+
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const [formData, setFormData] = useState<QuestionnaireData>({
     fullName: '', age: 0, nationality: 'Brasil', education: 'bachelor',
@@ -68,28 +248,96 @@ export default function Questionario() {
   const update = (field: keyof QuestionnaireData, value: unknown) =>
     setFormData(prev => ({ ...prev, [field]: value }));
 
+  // Check if user already completed the questionnaire
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { router.push('/login'); return; }
+
+    const alreadyDone = userProfile?.completedQuiz || userProfile?.hasCompletedQuestionnaire;
+
+    if (alreadyDone) {
+      // Fetch detailed questionnaire data from Firestore
+      getQuestionnaire(user.uid).then((data) => {
+        setSavedData(data);
+        setShowForm(false);
+        setPageLoading(false);
+      });
+    } else {
+      setShowForm(true);
+      setPageLoading(false);
+    }
+  }, [loading, user, userProfile, router]);
+
   const handleSubmit = async () => {
     if (!user) return;
     if (!formData.fullName || !formData.fieldOfStudy || !formData.occupation) {
       setError('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
-    setLoading(true);
+    setSubmitting(true);
     setError('');
     try {
       await saveQuestionnaire(user.uid, formData);
       await refreshUserProfile();
       await analyzeProfile(user.uid, formData);
-      setSuccess(true);
-      setTimeout(() => router.push('/visa-path'), 1500);
+      setSavedData(formData);
+      setJustCompleted(true);
+      setShowForm(false);
     } catch (err) {
       console.error(err);
       setError('Erro ao processar questionário. Verifique sua conexão e tente novamente.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
+  const handleRedo = () => {
+    setShowForm(true);
+    setStep(1);
+    setError('');
+    setJustCompleted(false);
+    setFormData({
+      fullName: '', age: 0, nationality: 'Brasil', education: 'bachelor',
+      fieldOfStudy: '', occupation: '', yearsOfExperience: 0, currentSalary: 0,
+      englishLevel: 'intermediate', otherLanguages: [],
+      destinationCountries: ['Estados Unidos'], immigrationGoal: 'work',
+      timeframe: '1-year', savings: 0, willingToInvest: 0,
+      hasFamily: false, hasJobOffer: false, hasCriminalRecord: false,
+    });
+  };
+
+  // ── Loading spinner ──────────────────────────────────────────────────────────
+  if (pageLoading || loading) {
+    return (
+      <Layout>
+        <div className="min-h-[80vh] flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-slate-500 text-sm">Carregando...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!user) return null;
+
+  // ── Already completed → show result ─────────────────────────────────────────
+  if (!showForm) {
+    return (
+      <SubscriptionGuard>
+        <Layout>
+          <ResultScreen
+            userProfile={userProfile}
+            savedData={savedData}
+            onRedo={handleRedo}
+          />
+        </Layout>
+      </SubscriptionGuard>
+    );
+  }
+
+  // ── Multi-step form ──────────────────────────────────────────────────────────
   return (
     <SubscriptionGuard>
       <Layout>
@@ -273,13 +521,7 @@ export default function Questionario() {
                       {error}
                     </div>
                   )}
-                  {success && (
-                    <div className="mt-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-emerald-700 text-sm">
-                      <FiCheckCircle className="w-4 h-4 shrink-0" />
-                      Análise concluída! Redirecionando para sua trilha...
-                    </div>
-                  )}
-                  {loading && (
+                  {submitting && (
                     <div className="mt-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-700 text-sm">
                       <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
                       Analisando seu perfil com IA... Isso pode levar alguns instantes.
@@ -293,7 +535,7 @@ export default function Questionario() {
                 <Button
                   variant="ghost"
                   onClick={() => setStep(s => Math.max(s - 1, 1))}
-                  disabled={step === 1 || loading}
+                  disabled={step === 1 || submitting}
                   className={`gap-2 ${step === 1 ? 'invisible' : ''}`}
                 >
                   <HiArrowLeft className="w-4 h-4" /> Voltar
@@ -306,12 +548,12 @@ export default function Questionario() {
                 ) : (
                   <Button
                     onClick={handleSubmit}
-                    disabled={loading || success}
-                    isLoading={loading}
+                    disabled={submitting}
+                    isLoading={submitting}
                     className="gap-2 min-w-[160px]"
                   >
-                    {!loading && <HiRocketLaunch className="w-4 h-4" />}
-                    {loading ? 'Analisando...' : 'Analisar Perfil'}
+                    {!submitting && <HiRocketLaunch className="w-4 h-4" />}
+                    {submitting ? 'Analisando...' : 'Analisar Perfil'}
                   </Button>
                 )}
               </div>

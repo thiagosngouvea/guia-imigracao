@@ -45,6 +45,7 @@ export function InteractiveTraining({
   onInteractionModeChange
 }: InteractiveTrainingProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const hasOpenedRef = useRef(false);
   const [currentInput, setCurrentInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -68,6 +69,36 @@ export function InteractiveTraining({
       inputRef.current.focus();
     }
   }, [interactionMode]);
+
+  // Primeira mensagem: o agente de imigração faz a pergunta inicial automaticamente
+  useEffect(() => {
+    if (hasOpenedRef.current) return;
+    hasOpenedRef.current = true;
+
+    const firstQuestion = scenario.questions[language][0];
+    const greeting = language === 'pt'
+      ? `Olá! Sou o agente consular responsável pela sua entrevista de visto ${scenario.visaType}. Vamos começar.\n\n${firstQuestion}`
+      : `Hello! I am the consular officer responsible for your ${scenario.visaType} visa interview. Let's begin.\n\n${firstQuestion}`;
+
+    const openingMessage: Message = {
+      id: 'opening-' + Date.now().toString(),
+      role: 'ai',
+      content: greeting,
+      timestamp: new Date()
+    };
+
+    // Pequeno delay para dar sensação de presença
+    const timer = setTimeout(() => {
+      setMessages([openingMessage]);
+      onMessageSaved(openingMessage);
+      if (interactionMode === 'voice') {
+        synthesizeSpeech(greeting);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Timer para gravação
   useEffect(() => {
@@ -353,19 +384,24 @@ export function InteractiveTraining({
           {/* Messages Area */}
           <div className="h-96 lg:h-[500px] overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-50/50 to-white/50">
             {messages.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <span className="text-2xl">🤖</span>
+              <div className="flex justify-start animate-fade-in">
+                <div className="max-w-xs lg:max-w-md">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-2 shadow-lg">
+                    <span className="text-white text-sm">🤖</span>
+                  </div>
+                  <div className="bg-white text-gray-600 px-6 py-4 rounded-2xl shadow-lg border border-gray-100">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                      </div>
+                      <span className="text-sm italic">
+                        {language === 'pt' ? 'Agente está se preparando...' : 'Agent is getting ready...'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {language === 'pt' ? 'Vamos começar!' : "Let's begin!"}
-                </h3>
-                <p className="text-gray-600">
-                  {language === 'pt' 
-                    ? 'Responda às perguntas como se estivesse em uma entrevista real.'
-                    : 'Answer the questions as if you were in a real interview.'
-                  }
-                </p>
               </div>
             )}
 

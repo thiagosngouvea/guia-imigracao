@@ -5,6 +5,7 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
+import { useCredits } from '../hooks/useCredits';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
 import {
   HiMap,
@@ -71,6 +72,7 @@ interface UpcomingTask {
 export default function Dashboard() {
   const { user, userProfile, loading } = useAuth();
   const { planTier } = useSubscription();
+  const { credits, isAdmin } = useCredits();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [trainingSessions, setTrainingSessions] = useState<TrainingSession[]>([]);
@@ -162,6 +164,15 @@ export default function Dashboard() {
       color: 'blue',
       completed: false,
     },
+    {
+      id: 'perfil',
+      title: 'Meu Perfil',
+      description: 'Veja seu perfil, edite seu nome e gerencie sua conta',
+      icon: <HiCheckCircle className="w-5 h-5" />,
+      href: '/perfil',
+      color: 'green',
+      completed: false,
+    },
   ];
 
   const generateRecentActivities = (): RecentActivity[] => {
@@ -215,8 +226,31 @@ export default function Dashboard() {
   const getCurrentVisa = () => userProfile?.selectedVisa || userProfile?.recommendedVisa;
   const hasCustomVisa = () => userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
   const getVisaId = (visaName: string) => {
-    const map: Record<string, string> = { 'B1/B2': 'b1b2', 'F1': 'f1', 'H1B': 'h1b', 'EB5': 'eb5', 'O1': 'o1', 'EB2 NIW': 'eb2-niw' };
-    return map[visaName] || visaName.toLowerCase();
+    // Normalize first: lowercase, collapse spaces/hyphens
+    const normalized = visaName.trim().toLowerCase().replace(/[\s\-\/]+/g, '');
+    const normMap: Record<string, string> = {
+      'b1b2': 'b1b2',
+      'b1': 'b1b2',
+      'b2': 'b1b2',
+      'f1': 'f1',
+      'f2': 'f1',
+      'h1b': 'h1b',
+      'h2b': 'h1b',
+      'eb5': 'eb5',
+      'o1': 'o1',
+      'o2': 'o1',
+      'eb2niw': 'eb2-niw',
+      'eb2': 'eb2-niw',
+    };
+    return normMap[normalized] || normalized;
+  };
+
+  // Returns the correct /documentos/* path for a visa name
+  const getDocumentosPath = (visaName: string) => {
+    const id = getVisaId(visaName);
+    // eb2-niw has its own dedicated page
+    if (id === 'eb2-niw') return '/documentos/eb2-niw';
+    return `/documentos/${id}`;
   };
 
   if (loading || !isClient) {
@@ -264,18 +298,20 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="hidden sm:flex items-center gap-3">
-                {/* Plan badge */}
+                {/* Credits badge */}
                 <button
-                  onClick={() => router.push('/subscription')}
+                  onClick={() => router.push('/gerenciar-assinatura')}
                   className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all hover:shadow-md ${
-                    planTier === 'expert'
+                    isAdmin
                       ? 'bg-violet-50 text-violet-700 border-violet-200'
-                      : planTier === 'pro'
+                      : credits > 10
                       ? 'bg-blue-50 text-blue-700 border-blue-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                      : credits > 0
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-red-50 text-red-700 border-red-200'
                   }`}
                 >
-                  {planTier === 'expert' ? '🚀 Expert' : planTier === 'pro' ? '⭐ Pro' : '🆓 Gratuito'}
+                  {isAdmin ? '👑 Admin' : credits > 0 ? `💳 ${credits} créditos` : '🛡️ Sem créditos'}
                 </button>
                 <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
                   <FiClock className="w-4 h-4" />
@@ -284,18 +320,18 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Free tier upgrade banner */}
-            {planTier === 'free' && (
-              <div className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 text-white flex items-center justify-between gap-4">
+            {/* Credits low banner */}
+            {!isAdmin && credits === 0 && (
+              <div className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 text-white flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-semibold text-sm">✨ Desbloqueie treinos de entrevista com IA</p>
-                  <p className="text-blue-100 text-xs mt-0.5">Mude para o plano Pro e comece a praticar para o consulado</p>
+                  <p className="font-semibold text-sm">💳 Sem créditos disponíveis</p>
+                  <p className="text-amber-100 text-xs mt-0.5">Compre créditos para treinar entrevistas de visto e usar os assistentes de IA</p>
                 </div>
                 <button
-                  onClick={() => router.push('/subscription')}
-                  className="shrink-0 bg-white text-blue-700 font-bold text-xs px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors"
+                  onClick={() => router.push('/comprar-creditos')}
+                  className="shrink-0 bg-white text-amber-700 font-bold text-xs px-4 py-2 rounded-xl hover:bg-amber-50 transition-colors"
                 >
-                  Ver Planos
+                  Comprar Créditos
                 </button>
               </div>
             )}
@@ -603,7 +639,7 @@ export default function Dashboard() {
                     </Link>
                     {currentVisa && (
                       <>
-                        <Link href={`/documentos/${getVisaId(currentVisa)}`}>
+                        <Link href={getDocumentosPath(currentVisa)}>
                           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-300 hover:text-white hover:bg-white/10">
                             <HiClipboardList className="w-4 h-4" /> Documentos Necessários
                           </Button>

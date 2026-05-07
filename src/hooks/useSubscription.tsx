@@ -1,71 +1,36 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from './useAuth';
-import { isSubscriptionActive, PLAN_LIMITS, resolvePlanTier, PlanTier } from '../lib/stripe';
+/**
+ * useSubscription — DEPRECADO
+ * 
+ * Este hook foi substituído pelo sistema de créditos.
+ * Use `useCredits` de '../hooks/useCredits' para verificar saldo e consumir créditos.
+ * 
+ * Este arquivo é mantido para evitar erros de importação em código legado que ainda
+ * referencie `hasActiveSubscription`, `planTier`, etc.
+ */
+import { useCredits } from './useCredits';
 
-interface UseSubscriptionReturn {
-  hasActiveSubscription: boolean;
-  isAdmin: boolean;
-  canAccessSystem: boolean;  // true for free tier too (free can log in)
-  subscriptionStatus?: string;
-  planType?: string;
-  planTier: PlanTier;
-  limits: typeof PLAN_LIMITS[PlanTier];
-  subscriptionEndDate?: Date;
-  loading: boolean;
-}
-
-export const useSubscription = (): UseSubscriptionReturn => {
-  const { userProfile, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!authLoading) {
-      setLoading(false);
-    }
-  }, [authLoading]);
-
-  const hasActiveSubscription = isSubscriptionActive(
-    userProfile?.subscriptionStatus,
-    userProfile?.subscriptionEndDate
-  );
-
-  // Admin se qualquer campo indicar privilégio
-  const isAdmin =
-    userProfile?.isAdmin === true ||
-    userProfile?.isPremium === true ||
-    userProfile?.role === 'admin' ||
-    userProfile?.role === 'super_admin';
-
-  // Resolve plan tier
-  let planTier: PlanTier = 'free';
-  if (isAdmin) {
-    planTier = 'expert';
-  } else if (hasActiveSubscription) {
-    planTier = resolvePlanTier(userProfile?.planType);
-    if (planTier === 'free') planTier = 'pro'; // default to pro if subscription active but no planType
-  }
-
-  const limits = PLAN_LIMITS[planTier];
-
-  // canAccessSystem is true even for free users (they can log in and see the app)
-  // Feature gates are handled by PlanGate components
-  const canAccessSystem = true;
-
-  const subscriptionEndDate = userProfile?.subscriptionEndDate?.toDate
-    ? userProfile.subscriptionEndDate.toDate()
-    : userProfile?.subscriptionEndDate
-    ? new Date(userProfile.subscriptionEndDate)
-    : undefined;
+export const useSubscription = () => {
+  const { credits, isAdmin } = useCredits();
 
   return {
-    hasActiveSubscription,
+    hasActiveSubscription: credits > 0 || isAdmin,
     isAdmin,
-    canAccessSystem,
-    subscriptionStatus: userProfile?.subscriptionStatus,
-    planType: userProfile?.planType,
-    planTier,
-    limits,
-    subscriptionEndDate,
-    loading,
+    canAccessSystem: true,
+    subscriptionStatus: undefined as string | undefined,
+    planType: undefined as string | undefined,
+    planTier: 'free' as const,
+    limits: {
+      monthlyTrainingSessions: Infinity,
+      canAccessTraining: true,
+      canAccessDS160: true,
+      canAccessEB2NIW: true,
+      canAccessVisaPath: true,
+      canAccessMinhaTrilha: true,
+      canAccessVisaDetails: true,
+      canAccessVoiceMode: true,
+      canAccessAdvancedScenarios: true,
+    },
+    subscriptionEndDate: undefined as Date | undefined,
+    loading: false,
   };
 };

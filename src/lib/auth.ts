@@ -65,6 +65,12 @@ export interface UserProfile {
   // Training usage tracking (reset monthly)
   monthlyTrainingCount?: number;  // how many sessions used this month
   lastTrainingReset?: any;        // Timestamp of last monthly reset
+
+  // Credits system
+  credits?: number;               // saldo atual de créditos
+  totalCreditsEarned?: number;    // total histórico de créditos ganhos
+  lastPurchaseAt?: any;           // última compra de créditos
+  lastPackageId?: string;         // último pacote comprado
 }
 
   
@@ -94,6 +100,8 @@ export interface UserProfile {
         isPremium: false,
         completedQuiz: false,
         interviewsPracticed: 0,
+        credits: 0,
+        totalCreditsEarned: 0,
       };
   
       await setDoc(doc(db, 'users', user.uid), userProfile);

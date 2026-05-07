@@ -40,11 +40,23 @@ export default function DocumentosVisto() {
     return null;
   }
 
-  // Get visa data
-  const visaData = visa ? visaDocumentsData[visa as string] : null;
+  // Get visa data — try direct key, then attempt normalization
+  const visaSlug = visa as string;
+  let visaData = visa ? visaDocumentsData[visaSlug] : null;
 
-  // If visa not found, show error
+  // Normalise slug and retry (handles 'B1B2' → 'b1b2', 'eb2-niw' etc.)
+  if (!visaData && visaSlug) {
+    const normalized = visaSlug.trim().toLowerCase().replace(/[\s\/]+/g, '');
+    visaData = visaDocumentsData[normalized] || null;
+  }
+
+  // If visa not found, show error (with redirect hint for eb2-niw)
   if (!visaData) {
+    // Special case: eb2-niw has a dedicated page
+    if (visaSlug && (visaSlug === 'eb2-niw' || visaSlug.toLowerCase().replace(/[\s\-\/]+/g, '') === 'eb2niw')) {
+      router.replace('/documentos/eb2-niw');
+      return null;
+    }
     return (
       <Layout>
         <div className="min-h-screen bg-gray-50 py-12">
