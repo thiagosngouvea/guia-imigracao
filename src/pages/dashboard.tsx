@@ -14,6 +14,7 @@ import {
   HiAcademicCap,
   HiDocumentText,
   HiCheckCircle,
+  HiCreditCard,
 } from 'react-icons/hi';
 import {
   HiMapPin,
@@ -27,6 +28,7 @@ import {
   HiGlobeAmericas,
   HiMiniArrowTrendingUp,
   HiMiniClock,
+  HiBolt,
 } from 'react-icons/hi2';
 import {
   MdOutlineVerified,
@@ -366,6 +368,7 @@ export default function Dashboard() {
                 icon: <MdOutlineVerified className="w-5 h-5" />,
                 iconBg: 'from-blue-500 to-blue-600',
                 valueCls: 'text-blue-600',
+                href: undefined as string | undefined,
               },
               {
                 label: 'Treinos Realizados',
@@ -374,6 +377,28 @@ export default function Dashboard() {
                 icon: <HiTrophy className="w-5 h-5" />,
                 iconBg: 'from-emerald-500 to-green-600',
                 valueCls: 'text-emerald-600',
+                href: '/treinamento' as string | undefined,
+              },
+              {
+                label: isAdmin ? 'Créditos' : credits > 10 ? 'Créditos' : credits > 0 ? 'Créditos (baixo)' : 'Sem Créditos',
+                value: isAdmin ? '∞' : credits,
+                sub: isAdmin ? 'Acesso admin' : credits > 10 ? 'Saldo saudável' : credits > 0 ? 'Compre mais em breve' : 'Compre créditos',
+                icon: <HiCreditCard className="w-5 h-5" />,
+                iconBg: isAdmin
+                  ? 'from-violet-500 to-purple-600'
+                  : credits > 10
+                  ? 'from-teal-500 to-cyan-600'
+                  : credits > 0
+                  ? 'from-amber-400 to-orange-500'
+                  : 'from-red-500 to-rose-600',
+                valueCls: isAdmin
+                  ? 'text-violet-600'
+                  : credits > 10
+                  ? 'text-teal-600'
+                  : credits > 0
+                  ? 'text-amber-600'
+                  : 'text-red-600',
+                href: isAdmin ? undefined : '/comprar-creditos' as string | undefined,
               },
               {
                 label: 'Dias na Plataforma',
@@ -382,27 +407,32 @@ export default function Dashboard() {
                 icon: <HiMiniClock className="w-5 h-5" />,
                 iconBg: 'from-violet-500 to-indigo-600',
                 valueCls: 'text-violet-600',
+                href: undefined as string | undefined,
               },
-              {
-                label: 'Progresso',
-                value: `${progress}%`,
-                sub: progress >= 80 ? 'Quase lá!' : progress >= 50 ? 'Bom ritmo' : 'Continue avançando',
-                icon: <HiMiniArrowTrendingUp className="w-5 h-5" />,
-                iconBg: 'from-amber-400 to-orange-500',
-                valueCls: 'text-amber-600',
-              },
-            ].map((stat, i) => (
-              <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`p-2 rounded-xl bg-gradient-to-br ${stat.iconBg} text-white shadow-sm`}>
-                    {stat.icon}
+            ].map((stat, i) => {
+              const cardContent = (
+                <div key={i} className={`bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 ${stat.href ? 'cursor-pointer hover:-translate-y-0.5 transition-transform' : ''}`}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`p-2 rounded-xl bg-gradient-to-br ${stat.iconBg} text-white shadow-sm`}>
+                      {stat.icon}
+                    </div>
+                    {stat.href && (
+                      <span className="text-xs text-slate-400 flex items-center gap-0.5 hover:text-blue-600 transition-colors">
+                        <HiBolt className="w-3 h-3" />
+                      </span>
+                    )}
                   </div>
+                  <p className={`text-2xl font-bold ${stat.valueCls} leading-none mb-1`}>{stat.value}</p>
+                  <p className="text-xs font-medium text-slate-500">{stat.label}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
                 </div>
-                <p className={`text-2xl font-bold ${stat.valueCls} leading-none mb-1`}>{stat.value}</p>
-                <p className="text-xs font-medium text-slate-500">{stat.label}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
-              </div>
-            ))}
+              );
+              return stat.href ? (
+                <Link key={i} href={stat.href}>{cardContent}</Link>
+              ) : (
+                <div key={i}>{cardContent}</div>
+              );
+            })}
           </div>
 
           {/* ── Trilha Banner ────────────────────────────────────── */}

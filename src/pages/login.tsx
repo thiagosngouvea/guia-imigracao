@@ -5,8 +5,9 @@ import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { signIn, signInWithGoogle } from '../lib/auth';
-import { HiMail, HiLockClosed } from 'react-icons/hi';
-import { HiArrowRight } from 'react-icons/hi2';
+import { HiMail, HiLockClosed, HiCheckCircle, HiShieldCheck } from 'react-icons/hi';
+import { HiArrowRight, HiBolt, HiSparkles } from 'react-icons/hi2';
+import { CREDIT_PACKAGES, formatPrice } from '../lib/stripe';
 
 const GoogleIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -23,6 +24,10 @@ export default function Login() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+
+  // Detecta se o usuário está logando para comprar créditos
+  const nextUrl = router.query.next as string | undefined;
+  const isBuyingCredits = nextUrl === '/comprar-creditos' || router.query.buy === 'credits';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,54 +65,142 @@ export default function Login() {
     if (errors[e.target.name]) setErrors(prev => ({ ...prev, [e.target.name]: '' }));
   };
 
+  const highlightedPackages = Object.values(CREDIT_PACKAGES).filter(p => ['starter', 'popular', 'pro'].includes(p.id));
+
   return (
     <Layout showHeader={false}>
       <div className="min-h-screen flex">
-        {/* Left panel — branding */}
-        <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-12 text-white relative overflow-hidden">
-          <div className="absolute inset-0 opacity-20" style={{
-            backgroundImage: 'radial-gradient(circle at 20% 80%, #3B82F6, transparent 50%), radial-gradient(circle at 80% 20%, #6366F1, transparent 40%)'
-          }} />
-          <div className="relative">
-            <div className="mb-12">
-              <div className="inline-block bg-white rounded-2xl px-4 py-3 shadow-lg">
-                <img src="/logo.png" alt="MoveEasy Immigration" className="h-14 w-auto object-contain" />
+        {/* Left panel — branding or credits upsell */}
+        {isBuyingCredits ? (
+          // ── Painel especial: comprar créditos ──────────────────────
+          <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 p-12 text-white relative overflow-hidden">
+            <div className="absolute inset-0" style={{
+              backgroundImage: 'radial-gradient(circle at 10% 90%, rgba(0,0,0,0.2), transparent 50%), radial-gradient(circle at 90% 10%, rgba(255,255,255,0.1), transparent 40%)'
+            }} />
+            {/* Floating blobs */}
+            <div className="absolute top-16 right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+            <div className="absolute bottom-24 left-4 w-48 h-48 bg-black/10 rounded-full blur-3xl" />
+
+            <div className="relative">
+              <div className="mb-8">
+                <div className="inline-block bg-white rounded-2xl px-4 py-3 shadow-lg">
+                  <img src="/logo.png" alt="MoveEasy Immigration" className="h-14 w-auto object-contain" />
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full px-4 py-1.5 text-sm font-semibold mb-5">
+                <HiSparkles className="w-4 h-4" /> Compra única · Sem assinatura
+              </div>
+              <h2 className="text-4xl font-bold leading-tight mb-3">
+                Compre créditos e<br />treine quando quiser
+              </h2>
+              <p className="text-amber-100 text-base leading-relaxed mb-8">
+                Sem mensalidades. Seus créditos não expiram. Use no seu ritmo.
+              </p>
+
+              {/* Mini cards dos pacotes */}
+              <div className="space-y-3">
+                {highlightedPackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 border transition-all ${
+                      pkg.highlight
+                        ? 'bg-white text-slate-900 border-white shadow-lg'
+                        : 'bg-white/15 backdrop-blur-sm border-white/25 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{pkg.emoji}</span>
+                      <div>
+                        <p className={`font-bold text-sm ${pkg.highlight ? 'text-slate-900' : 'text-white'}`}>{pkg.name}</p>
+                        <p className={`text-xs ${pkg.highlight ? 'text-slate-500' : 'text-amber-100'}`}>{pkg.totalCredits} créditos{pkg.bonusCredits > 0 ? ` (+${pkg.bonusCredits} bônus)` : ''}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-black text-base ${pkg.highlight ? 'text-amber-600' : 'text-white'}`}>{formatPrice(pkg.price)}</p>
+                      {pkg.highlight && <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">⭐ Popular</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <h2 className="text-4xl font-bold leading-tight mb-4">
-              Sua jornada para<br />os EUA começa aqui
-            </h2>
-            <p className="text-blue-200 text-lg leading-relaxed">
-              Plataforma completa para guiar você em cada etapa do processo de imigração americano.
-            </p>
-          </div>
-          <div className="relative space-y-4">
-            {[
-              { label: 'Questionário personalizado', desc: 'Descubra o visto ideal para seu perfil' },
-              { label: 'Treino com IA', desc: 'Pratique sua entrevista de visto' },
-              { label: 'Trilha de documentos', desc: 'Lista completa para cada tipo de visto' },
-            ].map((f, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-blue-500/30 border border-blue-400/50 flex items-center justify-center shrink-0 mt-0.5">
-                  <div className="w-2 h-2 rounded-full bg-blue-400" />
+
+            {/* Trust badges */}
+            <div className="relative mt-8 space-y-2">
+              {[
+                { icon: <HiShieldCheck className="w-4 h-4" />, text: 'Pagamento seguro via Stripe' },
+                { icon: <HiCheckCircle className="w-4 h-4" />, text: 'Créditos sem prazo de validade' },
+                { icon: <HiBolt className="w-4 h-4" />, text: 'Disponível imediatamente após a compra' },
+              ].map((b, i) => (
+                <div key={i} className="flex items-center gap-2 text-amber-100 text-sm">
+                  {b.icon} {b.text}
                 </div>
-                <div>
-                  <p className="font-medium text-sm">{f.label}</p>
-                  <p className="text-blue-300 text-xs">{f.desc}</p>
+              ))}
+            </div>
+          </div>
+        ) : (
+          // ── Painel padrão: branding ─────────────────────────────
+          <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-12 text-white relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20" style={{
+              backgroundImage: 'radial-gradient(circle at 20% 80%, #3B82F6, transparent 50%), radial-gradient(circle at 80% 20%, #6366F1, transparent 40%)'
+            }} />
+            <div className="relative">
+              <div className="mb-12">
+                <div className="inline-block bg-white rounded-2xl px-4 py-3 shadow-lg">
+                  <img src="/logo.png" alt="MoveEasy Immigration" className="h-14 w-auto object-contain" />
                 </div>
               </div>
-            ))}
+              <h2 className="text-4xl font-bold leading-tight mb-4">
+                Sua jornada para<br />os EUA começa aqui
+              </h2>
+              <p className="text-blue-200 text-lg leading-relaxed">
+                Plataforma completa para guiar você em cada etapa do processo de imigração americano.
+              </p>
+            </div>
+            <div className="relative space-y-4">
+              {[
+                { label: 'Questionário personalizado', desc: 'Descubra o visto ideal para seu perfil' },
+                { label: 'Treino com IA', desc: 'Pratique sua entrevista de visto' },
+                { label: 'Trilha de documentos', desc: 'Lista completa para cada tipo de visto' },
+              ].map((f, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-5 h-5 rounded-full bg-blue-500/30 border border-blue-400/50 flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-blue-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{f.label}</p>
+                    <p className="text-blue-300 text-xs">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Right panel — form */}
         <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white">
           <div className="w-full max-w-sm animate-fade-in">
+            {/* Banner contextual quando comprando créditos */}
+            {isBuyingCredits && (
+              <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">💳</span>
+                  <p className="font-bold text-amber-900 text-sm">Entre para comprar créditos</p>
+                </div>
+                <p className="text-amber-700 text-xs leading-relaxed">
+                  Faça login na sua conta para finalizar a compra dos seus créditos.
+                </p>
+              </div>
+            )}
             <div className="mb-8">
-              <h1 className="text-2xl font-bold text-slate-900 mb-1">Bem-vindo de volta</h1>
+              <h1 className="text-2xl font-bold text-slate-900 mb-1">
+                {isBuyingCredits ? 'Entre na sua conta' : 'Bem-vindo de volta'}
+              </h1>
               <p className="text-slate-500 text-sm">
                 Não tem uma conta?{' '}
-                <Link href="/cadastro" className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                <Link
+                  href={isBuyingCredits ? `/cadastro?next=${encodeURIComponent('/comprar-creditos')}` : '/cadastro'}
+                  className="text-blue-600 font-medium hover:text-blue-700 transition-colors"
+                >
                   Cadastre-se grátis
                 </Link>
               </p>
