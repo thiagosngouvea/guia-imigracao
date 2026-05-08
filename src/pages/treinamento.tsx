@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
 import { InteractiveTraining } from '../components/InteractiveTraining';
+import { RealtimeVoiceTraining } from '../components/RealtimeVoiceTraining';
 import { CreditGate } from '../components/CreditGate';
 import { useCredits } from '../hooks/useCredits';
 import {
@@ -14,7 +15,7 @@ import {
   TrainingMessage
 } from '../lib/training-history';
 import { HiAcademicCap, HiGlobeAlt, HiDocumentText } from 'react-icons/hi';
-import { HiMicrophone, HiCpuChip, HiLanguage, HiChartBar, HiCheckBadge, HiExclamationTriangle } from 'react-icons/hi2';
+import { HiMicrophone, HiCpuChip, HiLanguage, HiChartBar, HiCheckBadge, HiExclamationTriangle, HiSignal } from 'react-icons/hi2';
 import { FiCheckCircle } from 'react-icons/fi';
 
 interface Message {
@@ -42,7 +43,7 @@ interface InterviewScenario {
 }
 
 type Language = 'pt' | 'en';
-type InteractionMode = 'text' | 'voice';
+type InteractionMode = 'text' | 'voice' | 'realtime';
 
 const SCENARIO_ICONS: Record<string, React.ReactNode> = {
   'b1b2-tourism': <HiGlobeAlt className="w-6 h-6" />,
@@ -231,7 +232,10 @@ export default function Treinamento() {
 
     try {
       // Determina a feature de crédito baseada no modo de interação
-      const feature = interactionMode === 'voice' ? 'training_voice' : 'training';
+      const feature =
+        interactionMode === 'realtime' ? 'training_realtime'
+        : interactionMode === 'voice' ? 'training_voice'
+        : 'training';
 
       // Consome créditos (admins não gastam)
       const creditResult = await spend(feature);
@@ -318,6 +322,35 @@ export default function Treinamento() {
   const alternativeScenarios = scenarios.filter(s => s.id !== primaryScenario.id);
 
   if (selectedScenario && interviewStarted) {
+    // Modo Realtime — WebRTC direto
+    if (interactionMode === 'realtime') {
+      return (
+        <SubscriptionGuard>
+          <Layout showHeader={false}>
+            <RealtimeVoiceTraining
+              scenario={selectedScenario}
+              language={language}
+              onEnd={resetInterview}
+              onTranscriptLine={async (role, text) => {
+                if (!currentSessionId || !user) return;
+                try {
+                  await addMessageToSession(currentSessionId, {
+                    role: role === 'ai' ? 'ai' : 'user',
+                    content: text,
+                    timestamp: new Date(),
+                    isVoice: true,
+                  });
+                } catch (e) {
+                  console.error('Erro ao salvar transcript:', e);
+                }
+              }}
+            />
+          </Layout>
+        </SubscriptionGuard>
+      );
+    }
+
+    // Modos texto e voz
     return (
       <SubscriptionGuard>
         <Layout>
@@ -427,18 +460,41 @@ export default function Treinamento() {
                       <HiCpuChip className="w-4 h-4 text-emerald-500" /> Modo
                     </h3>
                     <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
-                      {(['text', 'voice'] as const).map(mode => (
-                        <button key={mode} onClick={() => setInteractionMode(mode)}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${interactionMode === mode
-                            ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md scale-105'
-                            : 'text-slate-600 hover:bg-white'
-                            }`}>
-                          {mode === 'text'
-                            ? <><HiDocumentText className="w-4 h-4" /> Texto</>
-                            : <><HiMicrophone className="w-4 h-4" /> Voz</>}
-                        </button>
-                      ))}
+                      {/* Texto */}
+                      <button onClick={() => setInteractionMode('text')}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${interactionMode === 'text'
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md scale-105'
+                          : 'text-slate-600 hover:bg-white'
+                          }`}>
+                        <HiDocumentText className="w-4 h-4" /> Texto
+                      </button>
+                      {/* Voz */}
+                      <button onClick={() => setInteractionMode('voice')}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${interactionMode === 'voice'
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md scale-105'
+                          : 'text-slate-600 hover:bg-white'
+                          }`}>
+                        <HiMicrophone className="w-4 h-4" /> Voz
+                      </button>
+                      {/* Realtime */}
+                      <button onClick={() => setInteractionMode('realtime')}
+                        className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${interactionMode === 'realtime'
+                          ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md scale-105'
+                          : 'text-slate-600 hover:bg-white'
+                          }`}>
+                        <HiSignal className="w-4 h-4" />
+                        Ao Vivo
+                        <span className="absolute -top-2 -right-1 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none uppercase">
+                          NEW
+                        </span>
+                      </button>
                     </div>
+                    {/* Custo por modo */}
+                    <p className="text-xs text-slate-400 mt-2 text-center">
+                      {interactionMode === 'text' ? '5 créditos'
+                        : interactionMode === 'voice' ? '7 créditos'
+                        : '15 créditos · voz bidirecional em tempo real'}
+                    </p>
                   </div>
                 </div>
 

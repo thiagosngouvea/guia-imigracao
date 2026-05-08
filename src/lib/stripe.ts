@@ -13,6 +13,7 @@ export const getStripe = () => {
 export const FEATURE_COSTS = {
   training: 5,           // Sessão de treinamento de entrevista
   training_voice: 7,     // Sessão de treinamento com modo voz (+2)
+  training_realtime: 15, // Sessão de treinamento com voz em tempo real (WebRTC)
   ds160: 3,              // Sessão do assistente DS-160
   eb2niw: 10,            // Análise EB2-NIW com IA
 } as const;
@@ -97,6 +98,7 @@ export const getFeatureLabel = (feature: FeatureKey): string => {
   const labels: Record<FeatureKey, string> = {
     training: 'Treinamento de Entrevista',
     training_voice: 'Treinamento com Modo Voz',
+    training_realtime: 'Treinamento Voz em Tempo Real',
     ds160: 'Assistente DS-160',
     eb2niw: 'Análise EB2-NIW',
   };

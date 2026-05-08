@@ -166,6 +166,7 @@ const getFeatureDescription = (feature: FeatureKey): string => {
   const descriptions: Record<FeatureKey, string> = {
     training: 'Treinamento de entrevista de visto (texto)',
     training_voice: 'Treinamento de entrevista de visto (voz)',
+    training_realtime: 'Treinamento de entrevista de visto (voz em tempo real)',
     ds160: 'Sessão do Assistente DS-160',
     eb2niw: 'Análise EB2-NIW com IA',
   };
