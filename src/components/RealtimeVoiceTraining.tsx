@@ -37,13 +37,13 @@ interface RealtimeVoiceTrainingProps {
 // ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<RealtimeStatus, { label: string; color: string; pulse: boolean }> = {
-  idle:        { label: 'Pronto',         color: '#64748b', pulse: false },
-  connecting:  { label: 'Conectando…',    color: '#f59e0b', pulse: true  },
-  connected:   { label: 'Conectado',      color: '#10b981', pulse: false },
-  listening:   { label: 'Ouvindo…',       color: '#3b82f6', pulse: true  },
-  'ai-speaking': { label: 'IA falando…', color: '#8b5cf6', pulse: true  },
-  error:       { label: 'Erro',           color: '#ef4444', pulse: false },
-  ended:       { label: 'Encerrado',      color: '#64748b', pulse: false },
+  idle:          { label: 'Pronto',       color: '#64748b', pulse: false },
+  connecting:    { label: 'Conectando…',  color: '#f59e0b', pulse: true  },
+  connected:     { label: 'Conectado',    color: '#10b981', pulse: false },
+  listening:     { label: 'Ouvindo…',     color: '#3b82f6', pulse: true  },
+  'ai-speaking': { label: 'IA falando…',  color: '#8b5cf6', pulse: true  },
+  error:         { label: 'Erro',         color: '#ef4444', pulse: false },
+  ended:         { label: 'Encerrado',    color: '#64748b', pulse: false },
 };
 
 // ─── Animated Orb ─────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ function VoiceOrb({ status }: { status: RealtimeStatus }) {
   const isActive = status === 'listening' || status === 'ai-speaking';
   const isConnecting = status === 'connecting';
 
-  const colors = {
+  const colors: Record<RealtimeStatus, [string, string]> = {
     idle:          ['#334155', '#1e293b'],
     connecting:    ['#f59e0b', '#d97706'],
     connected:     ['#10b981', '#059669'],
@@ -66,7 +66,6 @@ function VoiceOrb({ status }: { status: RealtimeStatus }) {
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
-      {/* Outer rings */}
       {[1, 2, 3].map((i) => (
         <div
           key={i}
@@ -82,7 +81,6 @@ function VoiceOrb({ status }: { status: RealtimeStatus }) {
         />
       ))}
 
-      {/* Inner glow */}
       <div
         className="absolute rounded-full"
         style={{
@@ -93,7 +91,6 @@ function VoiceOrb({ status }: { status: RealtimeStatus }) {
         }}
       />
 
-      {/* Main orb */}
       <div
         className="relative flex items-center justify-center rounded-full shadow-2xl"
         style={{
@@ -104,7 +101,6 @@ function VoiceOrb({ status }: { status: RealtimeStatus }) {
           transition: 'background 0.5s ease, box-shadow 0.5s ease',
         }}
       >
-        {/* Waveform bars inside orb */}
         {status === 'listening' && (
           <div className="flex items-center gap-1">
             {[...Array(7)].map((_, i) => (
@@ -241,6 +237,12 @@ export function RealtimeVoiceTraining({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const aiTranscriptIdRef = useRef<string | null>(null);
 
+  // ── StrictMode guard ───────────────────────────────────────────────────────
+  // Once set to true this ref is NEVER reset (not even by cleanup).
+  // React 18 StrictMode mounts → unmounts → remounts in dev; without this
+  // guard the second mount creates a second RTCPeerConnection causing duplicates.
+  const hasConnectedRef = useRef(false);
+
   // ── Session timer ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (status === 'connected' || status === 'listening' || status === 'ai-speaking') {
@@ -267,14 +269,36 @@ export function RealtimeVoiceTraining({
         setStatus('connected');
         break;
 
-      case 'input_audio_buffer.speech_started':
+      case 'input_audio_buffer.speech_started': {
         setStatus('listening');
+        // Create a placeholder keyed by item_id so we can fill it in reliably
+        // when Whisper finishes — keeping user text BEFORE the AI reply.
+        const startItemId = msg.item_id as string;
+        if (startItemId) {
+          setTranscript((prev) => [
+            ...prev,
+            { id: `user-${startItemId}`, role: 'user', text: '', isStreaming: true },
+          ]);
+        }
         break;
+      }
 
       case 'input_audio_buffer.speech_stopped':
-      case 'input_audio_buffer.committed':
+      case 'input_audio_buffer.committed': {
         setStatus('connected');
+        // While Whisper is working, show ellipsis so the bubble isn't empty.
+        const stopItemId = msg.item_id as string;
+        if (stopItemId) {
+          setTranscript((prev) =>
+            prev.map((l) =>
+              l.id === `user-${stopItemId}` && l.text === ''
+                ? { ...l, text: '…' }
+                : l
+            )
+          );
+        }
         break;
+      }
 
       case 'response.created':
       case 'response.audio.delta':
@@ -284,7 +308,6 @@ export function RealtimeVoiceTraining({
       case 'response.audio.done':
       case 'response.done':
         setStatus('connected');
-        // Finalize AI streaming transcript
         if (aiTranscriptIdRef.current) {
           setTranscript((prev) =>
             prev.map((l) =>
@@ -324,18 +347,29 @@ export function RealtimeVoiceTraining({
 
       case 'conversation.item.input_audio_transcription.completed': {
         const userText = (msg.transcript as string)?.trim() || '';
+        const doneItemId = msg.item_id as string;
         if (userText) {
-          setTranscript((prev) => [
-            ...prev,
-            { id: `user-${Date.now()}`, role: 'user', text: userText },
-          ]);
+          const placeholderId = `user-${doneItemId}`;
+          setTranscript((prev) => {
+            const hasPlaceholder = prev.some((l) => l.id === placeholderId);
+            if (hasPlaceholder) {
+              // Update in-place — order stays correct (user before AI).
+              return prev.map((l) =>
+                l.id === placeholderId
+                  ? { ...l, text: userText, isStreaming: false }
+                  : l
+              );
+            }
+            // Fallback: no placeholder (item_id missing), append.
+            return [...prev, { id: `user-${Date.now()}`, role: 'user', text: userText }];
+          });
           if (onTranscriptLine) onTranscriptLine('user', userText);
         }
         break;
       }
 
       case 'error': {
-        const errMsg = ((msg.error as Record<string,unknown>)?.message as string) || 'Unknown error';
+        const errMsg = ((msg.error as Record<string, unknown>)?.message as string) || 'Unknown error';
         console.error('Realtime API error:', errMsg);
         setErrorMsg(errMsg);
         setStatus('error');
@@ -344,14 +378,33 @@ export function RealtimeVoiceTraining({
     }
   }, [onTranscriptLine]);
 
+  // ── Cleanup ────────────────────────────────────────────────────────────────
+  const cleanup = useCallback(() => {
+    dcRef.current?.close();
+    pcRef.current?.close();
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    if (audioElRef.current) {
+      audioElRef.current.srcObject = null;
+      audioElRef.current = null;
+    }
+    dcRef.current = null;
+    pcRef.current = null;
+    localStreamRef.current = null;
+  }, []);
+
   // ── Connect ────────────────────────────────────────────────────────────────
   const connect = useCallback(async () => {
+    // One-shot guard: never connect more than once per component instance.
+    // hasConnectedRef is never reset so StrictMode's second mount is blocked.
+    if (hasConnectedRef.current) return;
+    hasConnectedRef.current = true;
+
     setStatus('connecting');
     setErrorMsg('');
     setTranscript([]);
 
     try {
-      // 1. Get ephemeral token from our server
+      // 1. Get ephemeral token
       const tokenRes = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,6 +439,15 @@ export function RealtimeVoiceTraining({
       dcRef.current = dc;
       dc.onmessage = handleDataChannelMessage;
 
+      // When the channel opens, trigger the AI to start the interview.
+      // The session instructions already tell it to greet and ask the first question.
+      dc.onopen = () => {
+        dc.send(JSON.stringify({
+          type: 'response.create',
+          response: { modalities: ['text', 'audio'] },
+        }));
+      };
+
       // 6. Create SDP offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -418,20 +480,6 @@ export function RealtimeVoiceTraining({
     }
   }, [language, scenario, handleDataChannelMessage]);
 
-  // ── Cleanup ────────────────────────────────────────────────────────────────
-  const cleanup = useCallback(() => {
-    dcRef.current?.close();
-    pcRef.current?.close();
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    if (audioElRef.current) {
-      audioElRef.current.srcObject = null;
-      audioElRef.current = null;
-    }
-    dcRef.current = null;
-    pcRef.current = null;
-    localStreamRef.current = null;
-  }, []);
-
   // ── Disconnect ─────────────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
     cleanup();
@@ -456,7 +504,6 @@ export function RealtimeVoiceTraining({
 
   return (
     <>
-      {/* ── CSS keyframes ── */}
       <style>{`
         @keyframes waveBar {
           0%, 100% { height: 8px; }
@@ -486,7 +533,6 @@ export function RealtimeVoiceTraining({
             <h1 className="text-white font-bold text-lg">{scenario.name}</h1>
           </div>
           <div className="flex items-center gap-4">
-            {/* Status pill */}
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5">
               <div
                 className="w-2 h-2 rounded-full"
@@ -497,13 +543,11 @@ export function RealtimeVoiceTraining({
               />
               <span className="text-xs font-semibold text-white/80">{cfg.label}</span>
             </div>
-            {/* Timer */}
             {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
               <div className="bg-white/5 border border-white/10 rounded-full px-4 py-1.5 font-mono text-xs text-white/70">
                 {formatTime(sessionTime)}
               </div>
             )}
-            {/* Visa badge */}
             <span className="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full">
               {scenario.visaType}
             </span>
@@ -515,10 +559,8 @@ export function RealtimeVoiceTraining({
 
           {/* Left: Orb + Controls */}
           <div className="flex flex-col items-center justify-center gap-8 p-8 lg:w-1/2 border-r border-white/10">
-            {/* Orb */}
             <VoiceOrb status={status} />
 
-            {/* Status label */}
             <p
               className="text-lg font-semibold transition-all duration-500"
               style={{ color: cfg.color }}
@@ -530,14 +572,12 @@ export function RealtimeVoiceTraining({
                 : cfg.label}
             </p>
 
-            {/* Error message */}
             {status === 'error' && errorMsg && (
               <div className="bg-red-900/30 border border-red-500/30 text-red-300 text-sm px-5 py-3 rounded-xl max-w-xs text-center">
                 {errorMsg}
               </div>
             )}
 
-            {/* Instruction */}
             {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
               <p className="text-slate-400 text-sm text-center max-w-xs leading-relaxed">
                 {status === 'listening'
@@ -549,9 +589,7 @@ export function RealtimeVoiceTraining({
               </p>
             )}
 
-            {/* Controls */}
             <div className="flex items-center gap-4">
-              {/* Mute button */}
               {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
                 <button
                   onClick={toggleMute}
@@ -571,7 +609,6 @@ export function RealtimeVoiceTraining({
                 </button>
               )}
 
-              {/* End/Retry button */}
               {status === 'error' ? (
                 <button
                   onClick={connect}
@@ -612,7 +649,6 @@ export function RealtimeVoiceTraining({
               <TranscriptPanel lines={transcript} language={language} />
             </div>
 
-            {/* Interview questions guide */}
             <div className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
                 {language === 'pt' ? 'Perguntas esperadas' : 'Expected questions'}
