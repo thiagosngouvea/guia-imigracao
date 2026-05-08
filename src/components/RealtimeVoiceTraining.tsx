@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { FeedbackSection } from '../pages/api/realtime-feedback';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -229,6 +230,10 @@ export function RealtimeVoiceTraining({
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
+  const [feedback, setFeedback] = useState<FeedbackSection | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  // Keep a ref copy of transcript so disconnect() can read the latest value
+  const transcriptRef = useRef<TranscriptLine[]>([]);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
@@ -378,6 +383,9 @@ export function RealtimeVoiceTraining({
     }
   }, [onTranscriptLine]);
 
+  // Keep transcriptRef in sync so disconnect() always sees latest lines
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+
   // ── Cleanup ────────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
     dcRef.current?.close();
@@ -480,12 +488,39 @@ export function RealtimeVoiceTraining({
     }
   }, [language, scenario, handleDataChannelMessage]);
 
-  // ── Disconnect ─────────────────────────────────────────────────────────────
-  const disconnect = useCallback(() => {
+  // ── Disconnect + generate feedback ────────────────────────────────────────
+  const disconnect = useCallback(async () => {
+    const finalTranscript = transcriptRef.current;
     cleanup();
     setStatus('ended');
     if (timerRef.current) clearInterval(timerRef.current);
-  }, [cleanup]);
+
+    // Generate feedback if there's enough conversation
+    const meaningful = finalTranscript.filter((l) => l.text && l.text !== '…');
+    if (meaningful.length < 2) return;
+
+    setFeedbackLoading(true);
+    try {
+      const res = await fetch('/api/realtime-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: meaningful.map((l) => ({ role: l.role, text: l.text })),
+          visaType: scenario.visaType,
+          scenarioName: scenario.name,
+          language,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as FeedbackSection;
+        setFeedback(data);
+      }
+    } catch (e) {
+      console.error('Feedback error:', e);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [cleanup, scenario, language]);
 
   // ── Auto-connect on mount ──────────────────────────────────────────────────
   useEffect(() => {
@@ -501,6 +536,13 @@ export function RealtimeVoiceTraining({
   }, [isMuted]);
 
   const cfg = STATUS_CONFIG[status];
+
+  // ── Verdict helpers ────────────────────────────────────────────────────────
+  const verdictConfig = {
+    aprovado:   { label: language === 'pt' ? 'Aprovado ✅' : 'Approved ✅',   bg: 'bg-emerald-900/40', border: 'border-emerald-500/40', text: 'text-emerald-300' },
+    improvavel: { label: language === 'pt' ? 'Incerto ⚠️' : 'Uncertain ⚠️',  bg: 'bg-amber-900/40',   border: 'border-amber-500/40',   text: 'text-amber-300'   },
+    reprovado:  { label: language === 'pt' ? 'Reprovado ❌' : 'Denied ❌',    bg: 'bg-red-900/40',     border: 'border-red-500/40',     text: 'text-red-300'     },
+  };
 
   return (
     <>
@@ -527,7 +569,7 @@ export function RealtimeVoiceTraining({
 
       <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)' }}>
         {/* ── Top Bar ── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div>
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">Modo Realtime</p>
             <h1 className="text-white font-bold text-lg">{scenario.name}</h1>
@@ -554,117 +596,223 @@ export function RealtimeVoiceTraining({
           </div>
         </div>
 
-        {/* ── Main Content ── */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">
-
-          {/* Left: Orb + Controls */}
-          <div className="flex flex-col items-center justify-center gap-8 p-8 lg:w-1/2 border-r border-white/10">
-            <VoiceOrb status={status} />
-
-            <p
-              className="text-lg font-semibold transition-all duration-500"
-              style={{ color: cfg.color }}
-            >
-              {status === 'ended'
-                ? (language === 'pt' ? 'Sessão encerrada' : 'Session ended')
-                : status === 'error'
-                ? (language === 'pt' ? 'Erro de conexão' : 'Connection error')
-                : cfg.label}
-            </p>
-
-            {status === 'error' && errorMsg && (
-              <div className="bg-red-900/30 border border-red-500/30 text-red-300 text-sm px-5 py-3 rounded-xl max-w-xs text-center">
-                {errorMsg}
+        {/* ── Feedback Panel (shown after session ends) ── */}
+        {status === 'ended' && (
+          <div className="flex-1 overflow-y-auto p-6" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
+            {feedbackLoading && (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <div className="w-12 h-12 border-4 border-violet-500/30 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
+                <p className="text-slate-400 text-sm">{language === 'pt' ? 'Analisando sua entrevista…' : 'Analyzing your interview…'}</p>
               </div>
             )}
 
-            {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
-              <p className="text-slate-400 text-sm text-center max-w-xs leading-relaxed">
-                {status === 'listening'
-                  ? (language === 'pt' ? 'Fale agora. A IA vai ouvir e responder automaticamente.' : 'Speak now. The AI will listen and respond automatically.')
-                  : status === 'ai-speaking'
-                  ? (language === 'pt' ? 'A IA está falando. Você pode interromper a qualquer momento.' : 'The AI is speaking. You can interrupt at any time.')
-                  : (language === 'pt' ? 'Aguardando você falar…' : 'Waiting for you to speak…')
-                }
-              </p>
+            {!feedbackLoading && !feedback && (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+                <span className="text-6xl">✅</span>
+                <p className="text-white font-bold text-xl">{language === 'pt' ? 'Sessão encerrada' : 'Session ended'}</p>
+                <button onClick={onEnd} className="px-6 py-3 rounded-2xl bg-blue-600/30 border border-blue-500/40 text-blue-300 hover:bg-blue-600/50 transition-all font-medium">
+                  {language === 'pt' ? '← Voltar' : '← Back'}
+                </button>
+              </div>
             )}
 
-            <div className="flex items-center gap-4">
-              {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
-                <button
-                  onClick={toggleMute}
-                  className={`flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl border transition-all duration-200 ${
-                    isMuted
-                      ? 'bg-red-900/40 border-red-500/40 text-red-300 hover:bg-red-900/60'
-                      : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                  }`}
-                >
-                  <span className="text-xl">{isMuted ? '🔇' : '🎤'}</span>
-                  <span className="text-xs font-medium">
-                    {isMuted
-                      ? (language === 'pt' ? 'Mutar' : 'Muted')
-                      : (language === 'pt' ? 'Microfone' : 'Mic on')
-                    }
-                  </span>
-                </button>
-              )}
-
-              {status === 'error' ? (
-                <button
-                  onClick={connect}
-                  className="flex flex-col items-center gap-1.5 px-6 py-3 rounded-2xl bg-amber-600/30 border border-amber-500/40 text-amber-300 hover:bg-amber-600/50 transition-all"
-                >
-                  <span className="text-xl">🔄</span>
-                  <span className="text-xs font-medium">{language === 'pt' ? 'Tentar novamente' : 'Retry'}</span>
-                </button>
-              ) : status === 'ended' ? (
-                <button
-                  onClick={onEnd}
-                  className="flex flex-col items-center gap-1.5 px-6 py-3 rounded-2xl bg-blue-600/30 border border-blue-500/40 text-blue-300 hover:bg-blue-600/50 transition-all"
-                >
-                  <span className="text-xl">🏠</span>
-                  <span className="text-xs font-medium">{language === 'pt' ? 'Voltar' : 'Back'}</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => { disconnect(); }}
-                  className="flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl bg-red-900/30 border border-red-500/30 text-red-300 hover:bg-red-900/50 transition-all duration-200"
-                >
-                  <span className="text-xl">⏹️</span>
-                  <span className="text-xs font-medium">{language === 'pt' ? 'Encerrar' : 'End'}</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Transcript */}
-          <div className="flex flex-col lg:w-1/2 p-6 overflow-hidden">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xl">📝</span>
-              <h2 className="text-white font-bold text-sm">
-                {language === 'pt' ? 'Transcrição em Tempo Real' : 'Live Transcript'}
-              </h2>
-            </div>
-            <div className="flex-1 overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-2xl p-4">
-              <TranscriptPanel lines={transcript} language={language} />
-            </div>
-
-            <div className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
-              <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
-                {language === 'pt' ? 'Perguntas esperadas' : 'Expected questions'}
-              </p>
-              <div className="space-y-1.5">
-                {scenario.questions[language].map((q, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-slate-500">
-                    <span className="shrink-0 text-slate-600 font-mono mt-0.5">{i + 1}.</span>
-                    <span>{q}</span>
+            {!feedbackLoading && feedback && (() => {
+              const vc = verdictConfig[feedback.verdict] ?? verdictConfig.improvavel;
+              const scoreColor = feedback.score >= 7 ? '#10b981' : feedback.score >= 4 ? '#f59e0b' : '#ef4444';
+              const circumference = 2 * Math.PI * 52;
+              const dash = (feedback.score / 10) * circumference;
+              return (
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {/* Score + Verdict */}
+                  <div className="flex flex-col sm:flex-row items-center gap-6 bg-white/5 border border-white/10 rounded-3xl p-6">
+                    {/* SVG Score Ring */}
+                    <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
+                      <svg width="120" height="120" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
+                        <circle
+                          cx="60" cy="60" r="52" fill="none"
+                          stroke={scoreColor} strokeWidth="10"
+                          strokeLinecap="round"
+                          strokeDasharray={`${dash} ${circumference}`}
+                          strokeDashoffset={circumference / 4}
+                          style={{ transition: 'stroke-dasharray 1s ease-out' }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-black text-white">{feedback.score}</span>
+                        <span className="text-xs text-slate-400">/10</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      <div className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold border mb-3 ${vc.bg} ${vc.border} ${vc.text}`}>
+                        {vc.label}
+                      </div>
+                      <p className="text-slate-300 text-sm leading-relaxed">{feedback.overall}</p>
+                    </div>
                   </div>
-                ))}
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {/* Strengths */}
+                    <div className="bg-emerald-900/20 border border-emerald-500/20 rounded-2xl p-5">
+                      <h3 className="text-emerald-400 font-bold text-sm mb-3 flex items-center gap-2">
+                        <span>✅</span> {language === 'pt' ? 'Pontos Fortes' : 'Strengths'}
+                      </h3>
+                      <ul className="space-y-2">
+                        {feedback.strengths.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Weaknesses */}
+                    <div className="bg-red-900/20 border border-red-500/20 rounded-2xl p-5">
+                      <h3 className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2">
+                        <span>⚠️</span> {language === 'pt' ? 'Pontos a Melhorar' : 'Areas to Improve'}
+                      </h3>
+                      <ul className="space-y-2">
+                        {feedback.weaknesses.map((w, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                            <span className="text-red-500 mt-0.5 shrink-0">•</span>
+                            <span>{w}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Tips */}
+                  <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-5">
+                    <h3 className="text-indigo-300 font-bold text-sm mb-3 flex items-center gap-2">
+                      <span>💡</span> {language === 'pt' ? `Dicas Específicas para Visto ${scenario.visaType}` : `Specific Tips for ${scenario.visaType} Visa`}
+                    </h3>
+                    <ul className="space-y-2">
+                      {feedback.tips.map((t, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                          <span className="text-indigo-400 font-mono mt-0.5 shrink-0">{i + 1}.</span>
+                          <span>{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Back button */}
+                  <div className="flex justify-center pt-2 pb-6">
+                    <button
+                      onClick={onEnd}
+                      className="px-8 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg"
+                    >
+                      {language === 'pt' ? '← Voltar ao Treinamento' : '← Back to Training'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── Main Content (active session) ── */}
+        {status !== 'ended' && (
+          <div className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">
+            {/* Left: Orb + Controls */}
+            <div className="flex flex-col items-center justify-center gap-8 p-8 lg:w-1/2 border-r border-white/10">
+              <VoiceOrb status={status} />
+
+              <p className="text-lg font-semibold transition-all duration-500" style={{ color: cfg.color }}>
+                {status === 'error'
+                  ? (language === 'pt' ? 'Erro de conexão' : 'Connection error')
+                  : cfg.label}
+              </p>
+
+              {status === 'error' && errorMsg && (
+                <div className="bg-red-900/30 border border-red-500/30 text-red-300 text-sm px-5 py-3 rounded-xl max-w-xs text-center">
+                  {errorMsg}
+                </div>
+              )}
+
+              {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
+                <p className="text-slate-400 text-sm text-center max-w-xs leading-relaxed">
+                  {status === 'listening'
+                    ? (language === 'pt' ? 'Fale agora. A IA vai ouvir e responder automaticamente.' : 'Speak now. The AI will listen and respond automatically.')
+                    : status === 'ai-speaking'
+                    ? (language === 'pt' ? 'A IA está falando. Você pode interromper a qualquer momento.' : 'The AI is speaking. You can interrupt at any time.')
+                    : (language === 'pt' ? 'Aguardando você falar…' : 'Waiting for you to speak…')
+                  }
+                </p>
+              )}
+
+              <div className="flex items-center gap-4">
+                {(status === 'connected' || status === 'listening' || status === 'ai-speaking') && (
+                  <button
+                    onClick={toggleMute}
+                    className={`flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl border transition-all duration-200 ${
+                      isMuted
+                        ? 'bg-red-900/40 border-red-500/40 text-red-300 hover:bg-red-900/60'
+                        : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="text-xl">{isMuted ? '🔇' : '🎤'}</span>
+                    <span className="text-xs font-medium">
+                      {isMuted
+                        ? (language === 'pt' ? 'Mutar' : 'Muted')
+                        : (language === 'pt' ? 'Microfone' : 'Mic on')
+                      }
+                    </span>
+                  </button>
+                )}
+
+                {status === 'error' ? (
+                  <button
+                    onClick={connect}
+                    className="flex flex-col items-center gap-1.5 px-6 py-3 rounded-2xl bg-amber-600/30 border border-amber-500/40 text-amber-300 hover:bg-amber-600/50 transition-all"
+                  >
+                    <span className="text-xl">🔄</span>
+                    <span className="text-xs font-medium">{language === 'pt' ? 'Tentar novamente' : 'Retry'}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { disconnect(); }}
+                    className="flex flex-col items-center gap-1.5 px-5 py-3 rounded-2xl bg-red-900/30 border border-red-500/30 text-red-300 hover:bg-red-900/50 transition-all duration-200"
+                  >
+                    <span className="text-xl">⏹️</span>
+                    <span className="text-xs font-medium">{language === 'pt' ? 'Encerrar' : 'End'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Transcript */}
+            <div className="flex flex-col lg:w-1/2 p-6 overflow-hidden">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xl">📝</span>
+                <h2 className="text-white font-bold text-sm">
+                  {language === 'pt' ? 'Transcrição em Tempo Real' : 'Live Transcript'}
+                </h2>
+              </div>
+              <div className="flex-1 overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-2xl p-4">
+                <TranscriptPanel lines={transcript} language={language} />
+              </div>
+
+              <div className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
+                  {language === 'pt' ? 'Perguntas esperadas' : 'Expected questions'}
+                </p>
+                <div className="space-y-1.5">
+                  {scenario.questions[language].map((q, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs text-slate-500">
+                      <span className="shrink-0 text-slate-600 font-mono mt-0.5">{i + 1}.</span>
+                      <span>{q}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </>
   );
 }
+
