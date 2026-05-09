@@ -384,21 +384,6 @@ export default function TesteGratuitoPage() {
         />
       </Head>
 
-      {/* ── Minimal header ─────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <Link href="/landing" className="flex items-center gap-2">
-            <div className="bg-white rounded-lg px-2 py-0.5 shadow-sm">
-              <img src="/logo.png" alt="MoveEasy" className="h-7 w-auto object-contain" />
-            </div>
-          </Link>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-400 text-xs font-medium">Análise gratuita com IA</span>
-          </div>
-        </div>
-      </header>
-
       <main className="min-h-screen" style={{ background: 'linear-gradient(160deg, #F0F7FF 0%, #F8FAFC 60%, #EEF2FF 100%)' }}>
 
         {/* ════════════════════════════════════════════════════
