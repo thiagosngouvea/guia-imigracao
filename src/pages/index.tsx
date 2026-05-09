@@ -199,7 +199,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <HiSparkles className="w-4 h-4 text-violet-400" />
-                <span>Powered by GPT-4o</span>
+                <span>Powered by IA avançada</span>
               </div>
             </div>
           </div>
@@ -577,7 +577,7 @@ export default function Home() {
               {[
                 { value: '24/7', label: 'Disponibilidade', sub: 'Sem horários limitados', gradient: 'from-blue-500 to-indigo-600' },
                 { value: '100%', label: 'Personalizado', sub: 'Baseado no seu perfil', gradient: 'from-violet-500 to-purple-600' },
-                { value: 'GPT-4o', label: 'Motor de IA', sub: 'Tecnologia de ponta', gradient: 'from-emerald-500 to-teal-600' },
+                { value: 'IA avançada', label: 'Motor de IA', sub: 'Tecnologia de ponta', gradient: 'from-emerald-500 to-teal-600' },
                 { value: 'B1/B2 · F1', label: 'Vistos cobertos', sub: 'Mais em breve', gradient: 'from-amber-500 to-orange-500' },
               ].map((s, i) => (
                 <div
