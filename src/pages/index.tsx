@@ -316,55 +316,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── BENEFITS ────────────────────────────────────────────── */}
-      <section className="py-28 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            {/* Left */}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-3">Por que a MoveEasy?</p>
-              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-6">
-                Construído para quem leva a imigração a sério
-              </h2>
-              <p className="text-slate-500 text-lg leading-relaxed mb-10">
-                Combinamos inteligência artificial de ponta com o conhecimento de especialistas em imigração para criar a preparação mais completa do mercado.
-              </p>
-
-              <ul className="space-y-4">
-                {BENEFITS.map((b, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-700">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 text-white flex items-center justify-center shrink-0">
-                      <HiCheckCircleOld className="w-3 h-3" />
-                    </div>
-                    <span className="text-sm">{b.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Right — stats */}
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { value: '24/7', label: 'Disponibilidade', sub: 'Sem horários limitados', gradient: 'from-blue-500 to-indigo-600' },
-                { value: '100%', label: 'Personalizado', sub: 'Baseado no seu perfil', gradient: 'from-violet-500 to-purple-600' },
-                { value: 'GPT-4o', label: 'Motor de IA', sub: 'Tecnologia de ponta', gradient: 'from-emerald-500 to-teal-600' },
-                { value: 'B1/B2 · F1', label: 'Vistos cobertos', sub: 'Mais em breve', gradient: 'from-amber-500 to-orange-500' },
-              ].map((s, i) => (
-                <div
-                  key={i}
-                  className={`relative overflow-hidden rounded-2xl p-6 text-white bg-gradient-to-br ${s.gradient} shadow-md`}
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.6), transparent)' }} />
-                  <p className="text-2xl sm:text-3xl font-black mb-1">{s.value}</p>
-                  <p className="font-semibold text-white/90 text-sm">{s.label}</p>
-                  <p className="text-white/60 text-xs mt-0.5">{s.sub}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ── REALTIME TRAINING HIGHLIGHT ────────────────────────── */}
       <section className="py-28" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #0f172a 100%)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -469,19 +420,19 @@ export default function Home() {
                     <div className="space-y-2.5 max-h-[180px] overflow-hidden">
                       <div className="flex justify-end gap-2">
                         <div className="bg-blue-600 text-white text-xs px-3 py-2 rounded-2xl rounded-tr-sm max-w-[82%]">
-                          I&apos;m going to Orlando for 10 days with my wife and kids.
+                          Vou para Orlando por 10 dias com minha esposa e meus filhos.
                         </div>
                         <div className="w-5 h-5 rounded-full bg-blue-600 text-[10px] text-white flex items-center justify-center shrink-0 mt-1">👤</div>
                       </div>
                       <div className="flex justify-start gap-2">
                         <div className="w-5 h-5 rounded-full bg-violet-600 text-[10px] text-white flex items-center justify-center shrink-0 mt-1">🤖</div>
                         <div className="bg-slate-800 border border-slate-700 text-slate-100 text-xs px-3 py-2 rounded-2xl rounded-tl-sm max-w-[82%]">
-                          Great. What do you do for work in Brazil and who is paying for this trip?
+                          Ótimo. Qual é seu trabalho no Brasil e quem vai pagar essa viagem?
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">
                         <div className="bg-blue-600 text-white text-xs px-3 py-2 rounded-2xl rounded-tr-sm max-w-[82%]">
-                          I&apos;m a civil engineer and I&apos;ll pay with my savings...
+                          Sou engenheiro civil e vou pagar com minhas economias...
                           <span className="inline-block ml-1 text-white/60 rt-caret">▌</span>
                         </div>
                         <div className="w-5 h-5 rounded-full bg-blue-600 text-[10px] text-white flex items-center justify-center shrink-0 mt-1">👤</div>
@@ -561,6 +512,55 @@ export default function Home() {
             }
           }
         `}</style>
+      </section>
+
+      {/* ── BENEFITS ────────────────────────────────────────────── */}
+      <section className="py-28 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            {/* Left */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-3">Por que a MoveEasy?</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-6">
+                Construído para quem leva a imigração a sério
+              </h2>
+              <p className="text-slate-500 text-lg leading-relaxed mb-10">
+                Combinamos inteligência artificial de ponta com o conhecimento de especialistas em imigração para criar a preparação mais completa do mercado.
+              </p>
+
+              <ul className="space-y-4">
+                {BENEFITS.map((b, i) => (
+                  <li key={i} className="flex items-center gap-3 text-slate-700">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 text-white flex items-center justify-center shrink-0">
+                      <HiCheckCircleOld className="w-3 h-3" />
+                    </div>
+                    <span className="text-sm">{b.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Right — stats */}
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { value: '24/7', label: 'Disponibilidade', sub: 'Sem horários limitados', gradient: 'from-blue-500 to-indigo-600' },
+                { value: '100%', label: 'Personalizado', sub: 'Baseado no seu perfil', gradient: 'from-violet-500 to-purple-600' },
+                { value: 'GPT-4o', label: 'Motor de IA', sub: 'Tecnologia de ponta', gradient: 'from-emerald-500 to-teal-600' },
+                { value: 'B1/B2 · F1', label: 'Vistos cobertos', sub: 'Mais em breve', gradient: 'from-amber-500 to-orange-500' },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className={`relative overflow-hidden rounded-2xl p-6 text-white bg-gradient-to-br ${s.gradient} shadow-md`}
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.6), transparent)' }} />
+                  <p className="text-2xl sm:text-3xl font-black mb-1">{s.value}</p>
+                  <p className="font-semibold text-white/90 text-sm">{s.label}</p>
+                  <p className="text-white/60 text-xs mt-0.5">{s.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── CTA ─────────────────────────────────────────────────── */}
