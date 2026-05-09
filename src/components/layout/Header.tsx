@@ -18,8 +18,9 @@ export function Header({ theme = 'dark' }: HeaderProps) {
   const isDark = theme === 'dark';
 
   const navLinks = user ? [
-    { href: '/dashboard',   label: 'Dashboard' },
-    { href: '/treinamento',  label: 'Treino IA' },
+    { href: '/dashboard',              label: 'Dashboard' },
+    { href: '/treinamento',            label: 'Treino IA' },
+    { href: '/historico-treinamento',  label: 'Histórico' },
   ] : [
     { href: '/#features', label: 'Funcionalidades' },
     { href: '/#benefits', label: 'Vantagens' },

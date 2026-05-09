@@ -13,10 +13,18 @@ import {
   addDoc 
 } from 'firebase/firestore';
 import { db } from './firebase';
+import type { FeedbackSection } from '../pages/api/realtime-feedback';
 
 // Função utilitária para remover campos undefined
 const cleanObject = (obj: any): any => {
   if (obj === null || obj === undefined) return obj;
+  
+  if (obj instanceof Date) return obj;
+
+  // Firebase Timestamp or FieldValue objects should be returned as-is
+  if (typeof obj === 'object' && (typeof obj.toDate === 'function' || obj._methodName)) {
+    return obj;
+  }
   
   if (Array.isArray(obj)) {
     return obj.map(cleanObject);
@@ -63,6 +71,7 @@ export interface TrainingSession {
   totalQuestions: number;
   completed: boolean;
   messages: TrainingMessage[];
+  feedback?: FeedbackSection; // AI-generated post-session feedback
   createdAt: any;
   updatedAt: any;
 }
@@ -80,6 +89,20 @@ export interface TrainingStats {
   createdAt: any;
   updatedAt: any;
 }
+
+// Função para salvar feedback de uma sessão
+export const saveFeedbackToSession = async (
+  sessionId: string,
+  feedback: FeedbackSection
+): Promise<void> => {
+  try {
+    const sessionRef = doc(db, 'training_sessions', sessionId);
+    await updateDoc(sessionRef, cleanObject({ feedback, updatedAt: serverTimestamp() }));
+  } catch (error) {
+    console.error('Erro ao salvar feedback da sessão:', error);
+    // Non-fatal: don't throw, just log
+  }
+};
 
 // Função para criar uma nova sessão de treinamento
 export const createTrainingSession = async (
@@ -180,7 +203,15 @@ export const finishTrainingSession = async (
 
     const sessionData = sessionDoc.data() as TrainingSession;
     const endTime = new Date();
-    const startTime = sessionData.startTime?.toDate() || endTime;
+    // startTime may be a Firestore Timestamp ({toDate}), a plain Date, or null
+    // (e.g. when serverTimestamp() hasn't resolved yet on a freshly-written doc).
+    const rawStart = sessionData.startTime;
+    const startTime: Date =
+      rawStart && typeof rawStart.toDate === 'function'
+        ? rawStart.toDate()
+        : rawStart instanceof Date
+        ? rawStart
+        : endTime;
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
 
     const updateData = {
@@ -287,13 +318,14 @@ export const updateUserTrainingStats = async (
 // Função para obter sessões de treinamento do usuário
 export const getUserTrainingSessions = async (
   userId: string,
-  limitCount: number = 20
+  limitCount: number = 50
 ): Promise<TrainingSession[]> => {
   try {
+    // Note: using only `where` (no `orderBy`) to avoid requiring a composite Firestore index.
+    // We sort the results client-side instead.
     const q = query(
       collection(db, 'training_sessions'),
       where('userId', '==', userId),
-      orderBy('createdAt', 'desc'),
       limit(limitCount)
     );
 
@@ -307,7 +339,19 @@ export const getUserTrainingSessions = async (
       } as TrainingSession);
     });
 
+    // Sort newest first client-side
+    sessions.sort((a, b) => {
+      const getTime = (ts: any): number => {
+        if (!ts) return 0;
+        if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+        if (ts instanceof Date) return ts.getTime();
+        return 0;
+      };
+      return getTime(b.createdAt) - getTime(a.createdAt);
+    });
+
     return sessions;
+
   } catch (error) {
     console.error('Erro ao obter sessões de treinamento:', error);
     throw new Error('Erro ao obter sessões de treinamento');

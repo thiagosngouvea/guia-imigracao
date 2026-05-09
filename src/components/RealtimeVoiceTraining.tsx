@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FeedbackSection } from '../pages/api/realtime-feedback';
+import { saveFeedbackToSession } from '../lib/training-history';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ interface InterviewScenario {
 interface RealtimeVoiceTrainingProps {
   scenario: InterviewScenario;
   language: 'pt' | 'en';
+  sessionId?: string; // Firestore session ID to persist feedback
   onEnd: () => void;
   onTranscriptLine?: (role: 'user' | 'ai', text: string) => void;
 }
@@ -222,6 +224,7 @@ function TranscriptPanel({
 export function RealtimeVoiceTraining({
   scenario,
   language,
+  sessionId,
   onEnd,
   onTranscriptLine,
 }: RealtimeVoiceTrainingProps) {
@@ -234,6 +237,8 @@ export function RealtimeVoiceTraining({
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   // Keep a ref copy of transcript so disconnect() can read the latest value
   const transcriptRef = useRef<TranscriptLine[]>([]);
+  // Ref to disconnect so the data channel handler can call it without circular deps
+  const disconnectRef = useRef<() => void>(() => {});
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
@@ -308,11 +313,15 @@ export function RealtimeVoiceTraining({
       case 'response.created':
       case 'response.audio.delta':
         setStatus('ai-speaking');
+        // Mute mic while AI is speaking to avoid feedback loop
+        localStreamRef.current?.getTracks().forEach((t) => { t.enabled = false; });
         break;
 
       case 'response.audio.done':
       case 'response.done':
         setStatus('connected');
+        // Re-enable mic now that AI has finished speaking
+        localStreamRef.current?.getTracks().forEach((t) => { t.enabled = true; });
         if (aiTranscriptIdRef.current) {
           setTranscript((prev) =>
             prev.map((l) =>
@@ -346,7 +355,21 @@ export function RealtimeVoiceTraining({
 
       case 'response.audio_transcript.done': {
         const finalText = (msg.transcript as string) || '';
-        if (finalText && onTranscriptLine) onTranscriptLine('ai', finalText);
+        // Strip the completion tag from the displayed text
+        const cleanText = finalText.replace('[INTERVIEW_COMPLETE]', '').trim();
+        if (cleanText && onTranscriptLine) onTranscriptLine('ai', cleanText);
+        // Also clean the tag from the transcript bubble
+        if (finalText.includes('[INTERVIEW_COMPLETE]')) {
+          setTranscript((prev) =>
+            prev.map((l) =>
+              l.id === aiTranscriptIdRef.current
+                ? { ...l, text: l.text.replace('[INTERVIEW_COMPLETE]', '').trim() }
+                : l
+            )
+          );
+          // Auto-end the session — triggers feedback flow
+          setTimeout(() => { disconnectRef.current(); }, 1500);
+        }
         break;
       }
 
@@ -383,8 +406,9 @@ export function RealtimeVoiceTraining({
     }
   }, [onTranscriptLine]);
 
-  // Keep transcriptRef in sync so disconnect() always sees latest lines
+  // ── Keep refs in sync ────────────────────────────────────────────────────
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+  // Note: disconnectRef is updated in the render body below (after disconnect is defined)
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
@@ -514,6 +538,10 @@ export function RealtimeVoiceTraining({
       if (res.ok) {
         const data = await res.json() as FeedbackSection;
         setFeedback(data);
+        // Persist to Firestore so it's accessible in history
+        if (sessionId) {
+          await saveFeedbackToSession(sessionId, data);
+        }
       }
     } catch (e) {
       console.error('Feedback error:', e);
@@ -521,6 +549,11 @@ export function RealtimeVoiceTraining({
       setFeedbackLoading(false);
     }
   }, [cleanup, scenario, language]);
+
+  // Update disconnectRef every render so the data channel handler always has
+  // the latest version without a useEffect dependency cycle.
+  disconnectRef.current = disconnect;
+
 
   // ── Auto-connect on mount ──────────────────────────────────────────────────
   useEffect(() => {

@@ -330,6 +330,7 @@ export default function Treinamento() {
             <RealtimeVoiceTraining
               scenario={selectedScenario}
               language={language}
+              sessionId={currentSessionId ?? undefined}
               onEnd={resetInterview}
               onTranscriptLine={async (role, text) => {
                 if (!currentSessionId || !user) return;

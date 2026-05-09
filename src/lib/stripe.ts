@@ -22,6 +22,21 @@ export type FeatureKey = keyof typeof FEATURE_COSTS;
 
 // ─── Pacotes de créditos (compra única, sem recorrência) ─────────────────────
 export const CREDIT_PACKAGES = {
+  mini: {
+    id: 'mini',
+    name: 'Mini',
+    emoji: '⚡',
+    credits: 5,
+    bonusCredits: 0,
+    totalCredits: 5,
+    price: 990,              // R$ 9,90 em centavos
+    currency: 'brl',
+    pricePerCredit: 198,     // R$ 1,98 por crédito
+    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_CREDITS_5_PRICE_ID!,
+    tagline: 'Experimente agora',
+    color: 'from-cyan-500 to-sky-600',
+    highlight: false,
+  },
   starter: {
     id: 'starter',
     name: 'Starter',
@@ -42,11 +57,11 @@ export const CREDIT_PACKAGES = {
     name: 'Popular',
     emoji: '⭐',
     credits: 30,
-    bonusCredits: 3,
-    totalCredits: 33,
+    bonusCredits: 5,
+    totalCredits: 35,
     price: 4990,             // R$ 49,90 em centavos
     currency: 'brl',
-    pricePerCredit: 151,     // R$ 1,51 por crédito
+    pricePerCredit: 142,     // R$ 1,42 por crédito
     stripePriceId: process.env.NEXT_PUBLIC_STRIPE_CREDITS_30_PRICE_ID!,
     tagline: 'Mais vendido',
     color: 'from-blue-500 to-indigo-600',

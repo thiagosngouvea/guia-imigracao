@@ -127,7 +127,7 @@ export default function ComprarCreditos() {
         </div>
 
         {/* ── Pacotes ───────────────────────────────────── */}
-        <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-16">
           {packages.map((pkg) => {
             const isLoading = loadingPackage === pkg.id;
             const isHighlighted = pkg.highlight;
@@ -151,14 +151,14 @@ export default function ComprarCreditos() {
                 )}
 
                 {/* Header do card */}
-                <div className={`px-6 pt-${isHighlighted ? '9' : '6'} pb-5 bg-gradient-to-br ${pkg.color} text-white`}>
-                  <div className="text-2xl mb-1">{pkg.emoji}</div>
-                  <h2 className="text-xl font-bold mb-0.5">{pkg.name}</h2>
-                  <p className="text-white/75 text-xs mb-4">{pkg.tagline}</p>
+                <div className={`px-4 pt-${isHighlighted ? '8' : '5'} pb-4 bg-gradient-to-br ${pkg.color} text-white`}>
+                  <div className="text-xl mb-1">{pkg.emoji}</div>
+                  <h2 className="text-lg font-bold mb-0.5">{pkg.name}</h2>
+                  <p className="text-white/75 text-xs mb-3">{pkg.tagline}</p>
 
                   {/* Preço */}
                   <div className="flex items-baseline gap-1 mb-1">
-                    <span className="text-3xl font-black">{formatPrice(pkg.price)}</span>
+                    <span className="text-2xl font-black">{formatPrice(pkg.price)}</span>
                   </div>
                   <p className="text-white/70 text-xs">
                     {formatPrice(pkg.pricePerCredit)}/crédito
@@ -166,50 +166,50 @@ export default function ComprarCreditos() {
                 </div>
 
                 {/* Créditos */}
-                <div className="px-6 py-5">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="px-4 py-4">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-3xl font-black text-slate-900">{pkg.credits}</p>
+                      <p className="text-2xl font-black text-slate-900">{pkg.credits}</p>
                       <p className="text-xs text-slate-500">créditos</p>
                     </div>
                     {pkg.bonusCredits > 0 && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-center">
-                        <p className="text-lg font-bold text-emerald-600">+{pkg.bonusCredits}</p>
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-1.5 text-center">
+                        <p className="text-base font-bold text-emerald-600">+{pkg.bonusCredits}</p>
                         <p className="text-xs text-emerald-500 font-medium">bônus</p>
                       </div>
                     )}
                   </div>
 
                   {pkg.bonusCredits > 0 && (
-                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 mb-4">
-                      <HiSparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl px-2.5 py-1.5 mb-3">
+                      <HiSparkles className="w-3 h-3 text-emerald-500 shrink-0" />
                       <p className="text-xs text-emerald-700 font-medium">
-                        Total: <span className="font-bold">{pkg.totalCredits} créditos</span>
+                        Total: <span className="font-bold">{pkg.totalCredits} créd.</span>
                       </p>
                     </div>
                   )}
 
                   {/* Equivalência em treinos */}
-                  <p className="text-xs text-slate-400 mb-5">
-                    ≈ {Math.floor(pkg.totalCredits / FEATURE_COSTS.training)} treino{Math.floor(pkg.totalCredits / FEATURE_COSTS.training) !== 1 ? 's' : ''} de entrevista
+                  <p className="text-xs text-slate-400 mb-4">
+                    ≈ {Math.floor(pkg.totalCredits / FEATURE_COSTS.training)} treino{Math.floor(pkg.totalCredits / FEATURE_COSTS.training) !== 1 ? 's' : ''}
                   </p>
 
                   {/* CTA */}
                   <button
                     onClick={() => handleBuyPackage(pkg.id as CreditPackageId)}
                     disabled={!!loadingPackage}
-                    className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-sm disabled:opacity-60 ${
+                    className={`w-full py-2.5 rounded-xl font-semibold text-xs transition-all duration-200 flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60 ${
                       isHighlighted
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20'
                         : 'bg-gradient-to-r from-slate-800 to-slate-900 text-white hover:from-slate-700 hover:to-slate-800'
                     }`}
                   >
                     {isLoading ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
                       <>
-                        <HiBolt className="w-4 h-4" />
-                        Comprar {pkg.totalCredits} créditos
+                        <HiBolt className="w-3.5 h-3.5" />
+                        Comprar {pkg.totalCredits} créd.
                       </>
                     )}
                   </button>
