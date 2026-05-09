@@ -129,7 +129,6 @@ export const isAdminUser = (userProfile: {
   if (!userProfile) return false;
   return (
     userProfile.isAdmin === true ||
-    userProfile.isPremium === true ||
     userProfile.role === 'admin' ||
     userProfile.role === 'super_admin'
   );

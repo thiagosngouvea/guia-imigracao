@@ -21,6 +21,7 @@ export function Header({ theme = 'dark' }: HeaderProps) {
     { href: '/dashboard',              label: 'Dashboard' },
     { href: '/treinamento',            label: 'Treino IA' },
     { href: '/historico-treinamento',  label: 'Histórico' },
+    ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ] : [
     { href: '/#features', label: 'Funcionalidades' },
     { href: '/#benefits', label: 'Vantagens' },

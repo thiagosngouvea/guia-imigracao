@@ -16,13 +16,21 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+      return isAuthenticated() && (
+        // Custom claims no token do Firebase Auth
+        request.auth.token.admin == true ||
+        request.auth.token.role == 'admin' ||
+        request.auth.token.role == 'super_admin' ||
+        // Flags salvas no documento do usuário
         (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
-        );
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+          )
+        )
+      );
     }
 
     function isLeadOwnerByEmail() {
@@ -56,7 +64,7 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
 
       // Subcoleção de histórico de créditos
       // Leitura: o próprio usuário ou admin
@@ -64,7 +72,8 @@ service cloud.firestore {
       match /creditHistory/{txId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) || isAdmin();
-        allow update, delete: if false; // transacões são imutáveis
+        allow update: if false; // transacões são imutáveis
+        allow delete: if isAdmin();
       }
     }
 
@@ -74,7 +83,7 @@ service cloud.firestore {
     // ============================================================
     match /questionnaires/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId);
+      allow write: if isOwner(userId) || isAdmin();
     }
 
     // ============================================================
@@ -89,8 +98,9 @@ service cloud.firestore {
       // Cliente pode criar (necessário para addDoc e setDoc do web)
       allow create: if isAuthenticated() &&
         request.resource.data.userId == request.auth.uid;
-      // Somente Cloud Functions podem atualizar/deletar  
-      allow update, delete: if false;
+      // Update continua fechado no cliente; delete permitido para admin
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // ============================================================
@@ -101,7 +111,7 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // ============================================================
@@ -121,7 +131,7 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() &&
         resource != null &&
-        resource.data.userId == request.auth.uid;
+        resource.data.userId == request.auth.uid || isAdmin();
     }
 
     // ============================================================
@@ -130,7 +140,7 @@ service cloud.firestore {
     // ============================================================
     match /training_stats/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId);
+      allow write: if isOwner(userId) || isAdmin();
     }
 
     // ============================================================
@@ -170,7 +180,7 @@ service cloud.firestore {
     // ============================================================
     match /ds160/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId);
+      allow write: if isOwner(userId) || isAdmin();
     }
 
     // ============================================================
@@ -187,7 +197,7 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() &&
         resource != null &&
-        resource.data.userId == request.auth.uid;
+        resource.data.userId == request.auth.uid || isAdmin();
     }
 
     // ============================================================
@@ -199,7 +209,16 @@ service cloud.firestore {
       allow create: if true; // público — para capturar leads sem conta
       allow read: if isLeadOwnerByEmail() || isAdmin();
       allow update: if isLeadOwnerByEmail() || isAdmin() || isPublicQuizCompletionUpdate();
-      allow delete: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ============================================================
+    // Admin super access (fallback)
+    // Garante que contas admin consigam auditar e gerenciar qualquer
+    // coleção necessária no painel administrativo.
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
   }
