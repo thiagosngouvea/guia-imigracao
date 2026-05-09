@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
-import { useSubscription } from '../hooks/useSubscription';
 import { useCredits } from '../hooks/useCredits';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
 import {
@@ -73,7 +72,6 @@ interface UpcomingTask {
 
 export default function Dashboard() {
   const { user, userProfile, loading } = useAuth();
-  const { planTier } = useSubscription();
   const { credits, isAdmin } = useCredits();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
@@ -302,7 +300,7 @@ export default function Dashboard() {
               <div className="hidden sm:flex items-center gap-3">
                 {/* Credits badge */}
                 <button
-                  onClick={() => router.push('/gerenciar-assinatura')}
+                  onClick={() => router.push('/gerenciar-creditos')}
                   className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all hover:shadow-md ${
                     isAdmin
                       ? 'bg-violet-50 text-violet-700 border-violet-200'

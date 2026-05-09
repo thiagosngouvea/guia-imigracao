@@ -7,7 +7,9 @@ import { SubscriptionGuard } from '../components/SubscriptionGuard';
 import { InteractiveTraining } from '../components/InteractiveTraining';
 import { RealtimeVoiceTraining } from '../components/RealtimeVoiceTraining';
 import { CreditGate } from '../components/CreditGate';
+import { CreditConfirmModal } from '../components/CreditConfirmModal';
 import { useCredits } from '../hooks/useCredits';
+import { FeatureKey, getFeatureLabel } from '../lib/stripe';
 import {
   createTrainingSession,
   addMessageToSession,
@@ -44,6 +46,12 @@ interface InterviewScenario {
 
 type Language = 'pt' | 'en';
 type InteractionMode = 'text' | 'voice' | 'realtime';
+
+const getFeatureForMode = (mode: InteractionMode): FeatureKey => {
+  if (mode === 'realtime') return 'training_realtime';
+  if (mode === 'voice') return 'training_voice';
+  return 'training';
+};
 
 const SCENARIO_ICONS: Record<string, React.ReactNode> = {
   'b1b2-tourism': <HiGlobeAlt className="w-6 h-6" />,
@@ -150,8 +158,7 @@ const scenarios: InterviewScenario[] = [
 export default function Treinamento() {
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
-  const { credits, isAdmin, canAfford, spend } = useCredits();
-  const canStartTraining = isAdmin || canAfford('training');
+  const { credits, isAdmin, canAfford, spend, getCost } = useCredits();
   const [selectedScenario, setSelectedScenario] = useState<InterviewScenario | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewStarted, setInterviewStarted] = useState(false);
@@ -162,6 +169,10 @@ export default function Treinamento() {
   // Estado para controlar a sessão de treinamento
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isSavingSession, setIsSavingSession] = useState(false);
+  const [showSpendModal, setShowSpendModal] = useState(false);
+  const [pendingScenario, setPendingScenario] = useState<InterviewScenario | null>(null);
+  const [pendingFeature, setPendingFeature] = useState<FeatureKey>('training');
+  const [spendError, setSpendError] = useState('');
 
   // Função para obter o visto atual (escolhido pelo usuário ou recomendado)
   const getCurrentVisa = () => {
@@ -224,23 +235,20 @@ export default function Treinamento() {
     }
   }, [user, loading, router]);
 
-  const startInterview = async (scenario: InterviewScenario) => {
+  const startInterview = async (scenario: InterviewScenario, feature: FeatureKey) => {
     if (!user) return;
-    if (!canStartTraining) return;
+    if (!isAdmin && !canAfford(feature)) {
+      router.push('/comprar-creditos');
+      return;
+    }
 
     setIsSavingSession(true);
 
     try {
-      // Determina a feature de crédito baseada no modo de interação
-      const feature =
-        interactionMode === 'realtime' ? 'training_realtime'
-        : interactionMode === 'voice' ? 'training_voice'
-        : 'training';
-
       // Consome créditos (admins não gastam)
       const creditResult = await spend(feature);
       if (!creditResult) {
-        alert('Créditos insuficientes. Compre mais créditos para continuar.');
+        setSpendError('Créditos insuficientes para iniciar este treinamento.');
         router.push('/comprar-creditos');
         return;
       }
@@ -263,10 +271,28 @@ export default function Treinamento() {
 
     } catch (error) {
       console.error('Erro ao iniciar sessão de treinamento:', error);
-      alert('Erro ao iniciar treinamento. Tente novamente.');
+      setSpendError('Erro ao iniciar treinamento. Tente novamente.');
     } finally {
       setIsSavingSession(false);
     }
+  };
+
+  const requestStartInterview = (scenario: InterviewScenario) => {
+    const feature = getFeatureForMode(interactionMode);
+    if (isAdmin) {
+      startInterview(scenario, feature);
+      return;
+    }
+    setPendingScenario(scenario);
+    setPendingFeature(feature);
+    setShowSpendModal(true);
+  };
+
+  const confirmSpendAndStart = async () => {
+    if (!pendingScenario) return;
+    setShowSpendModal(false);
+    await startInterview(pendingScenario, pendingFeature);
+    setPendingScenario(null);
   };
 
   const resetInterview = async () => {
@@ -312,6 +338,8 @@ export default function Treinamento() {
   }
 
   const currentVisa = getCurrentVisa();
+  const selectedFeature = getFeatureForMode(interactionMode);
+  const canStartCurrentMode = isAdmin || canAfford(selectedFeature);
   const hasCustomVisa = userProfile?.selectedVisa && userProfile.selectedVisa !== userProfile.recommendedVisa;
   // Normaliza o visto removendo hífens para comparação ("F-1" → "F1", "H-1B" → "H1B")
   const normalizeVisa = (v: string) => v.replace(/-/g, '');
@@ -529,7 +557,7 @@ export default function Treinamento() {
           {/* ── Cenário Principal (trilha do usuário) ── */}
           <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pb-10">
             <CreditGate
-              feature="training"
+              feature={selectedFeature}
               message="Treine sua entrevista de visto com IA. Simule perguntas reais do consulado e receba feedback personalizado."
             >
               {(() => {
@@ -537,11 +565,11 @@ export default function Treinamento() {
                 const isAdvanced = false;
                 const isLocked = false;
                 const isVoiceAvailable = true;
-                const disabled = isSavingSession || !canStartTraining;
+                const disabled = isSavingSession || !canStartCurrentMode;
                 return (
                   <div
                     className={`group relative flex flex-col md:flex-row items-center gap-6 bg-white rounded-3xl border-2 border-blue-400 ring-4 ring-blue-400/20 shadow-xl p-8 transition-all duration-200 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-2xl hover:-translate-y-1'}`}
-                    onClick={() => !disabled && startInterview(scenario)}
+                    onClick={() => !disabled && requestStartInterview(scenario)}
                   >
                     <div className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${scenario.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                     {isLocked && (
@@ -575,7 +603,7 @@ export default function Treinamento() {
                     </div>
                     <button
                       disabled={disabled}
-                      onClick={e => { e.stopPropagation(); if (!disabled) startInterview(scenario); }}
+                      onClick={e => { e.stopPropagation(); if (!disabled) requestStartInterview(scenario); }}
                       className={`shrink-0 px-8 py-3 rounded-2xl font-semibold text-sm transition-all duration-200 ${
                         disabled
                           ? 'bg-slate-100 text-slate-400'
@@ -612,9 +640,9 @@ export default function Treinamento() {
                     <div
                       key={scenario.id}
                       className={`group relative flex flex-col bg-white rounded-2xl overflow-hidden border border-slate-200 transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${
-                        isSavingSession || !canStartTraining || isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                        isSavingSession || !canStartCurrentMode || isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
                       }`}
-                      onClick={() => !isSavingSession && canStartTraining && !isLocked && startInterview(scenario)}
+                      onClick={() => !isSavingSession && canStartCurrentMode && !isLocked && requestStartInterview(scenario)}
                     >
                       <div className={`absolute inset-0 bg-gradient-to-br ${scenario.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                       {isLocked && (
@@ -684,6 +712,23 @@ export default function Treinamento() {
             </div>
           </div>
         </div>
+        {spendError && (
+          <div className="fixed bottom-4 right-4 z-[85] max-w-sm rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg">
+            {spendError}
+          </div>
+        )}
+        <CreditConfirmModal
+          open={showSpendModal}
+          featureLabel={getFeatureLabel(pendingFeature)}
+          cost={getCost(pendingFeature)}
+          credits={credits}
+          loading={isSavingSession}
+          onCancel={() => {
+            setShowSpendModal(false);
+            setPendingScenario(null);
+          }}
+          onConfirm={confirmSpendAndStart}
+        />
       </Layout>
     </SubscriptionGuard>
   );

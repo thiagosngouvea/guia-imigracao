@@ -80,7 +80,7 @@ const PrivacyPolicy: React.FC = () => {
                 </h2>
                 <ul className="list-disc pl-6 text-gray-700 space-y-1">
                   <li>Fornecer orientação personalizada para processos de imigração</li>
-                  <li>Processar pagamentos e gerenciar assinaturas</li>
+                  <li>Processar pagamentos e gerenciar pacotes de créditos</li>
                   <li>Melhorar nossos serviços e experiência do usuário</li>
                   <li>Enviar comunicações importantes sobre sua conta</li>
                   <li>Cumprir obrigações legais e regulamentares</li>

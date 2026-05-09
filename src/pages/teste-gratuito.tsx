@@ -847,7 +847,7 @@ export default function TesteGratuitoPage() {
         )}
 
         {/* ════════════════════════════════════════════════════
-            STEP 4 — RESULT + SUBSCRIPTION CTA
+            STEP 4 — RESULT + CREDIT CTA
         ════════════════════════════════════════════════════ */}
         {step === 'result' && result && (
           <div ref={resultRef} className="animate-fade-in">
@@ -927,7 +927,7 @@ export default function TesteGratuitoPage() {
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="flex items-center gap-2 bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg">
                           <HiLockClosed className="w-3.5 h-3.5 text-amber-400" />
-                          Detalhes completos com a assinatura
+                          Detalhes completos com créditos
                         </div>
                       </div>
                     </div>
@@ -939,13 +939,13 @@ export default function TesteGratuitoPage() {
               <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
                 <span className="text-amber-500 text-xl shrink-0">⚡</span>
                 <p className="text-amber-800 text-sm leading-relaxed">
-                  <strong>Próximo passo:</strong> Com a assinatura, você acessa o plano completo
+                  <strong>Próximo passo:</strong> Com créditos, você acessa o plano completo
                   para o {result.topVisa}, simulação de entrevista, checklist de documentos e muito mais.
                 </p>
               </div>
             </div>
 
-            {/* ── Subscription CTA ──────────────────────────── */}
+            {/* ── Credit CTA ──────────────────────────── */}
             <div
               className="py-16 px-4"
               style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1e3a8a 50%, #0F172A 100%)' }}
@@ -1028,7 +1028,7 @@ export default function TesteGratuitoPage() {
                               'Assistente DS-160',
                               'Análise EB-2 NIW',
                               'Trilha personalizada de visto',
-                              'Sem assinatura recorrente',
+                              'Sem mensalidade recorrente',
                             ].map((f) => (
                               <li key={f} className="flex items-center gap-2 text-sm text-slate-700">
                                 <HiCheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />

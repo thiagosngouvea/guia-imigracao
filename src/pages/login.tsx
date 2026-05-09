@@ -88,7 +88,7 @@ export default function Login() {
                 </div>
               </div>
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full px-4 py-1.5 text-sm font-semibold mb-5">
-                <HiSparkles className="w-4 h-4" /> Compra única · Sem assinatura
+                <HiSparkles className="w-4 h-4" /> Compra única · Sem mensalidade
               </div>
               <h2 className="text-4xl font-bold leading-tight mb-3">
                 Compre créditos e<br />treine quando quiser

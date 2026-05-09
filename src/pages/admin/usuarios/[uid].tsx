@@ -16,6 +16,7 @@ import { Layout } from '../../../components/layout/Layout';
 import { useAuth } from '../../../hooks/useAuth';
 import { useCredits } from '../../../hooks/useCredits';
 import { db } from '../../../lib/firebase';
+import { isAdminUser } from '../../../lib/stripe';
 import { TrainingSession } from '../../../lib/training-history';
 import {
   HiArrowLeft,
@@ -41,6 +42,7 @@ interface CreditEntry {
 }
 
 interface UserDetails {
+  isAdmin: boolean;
   uid: string;
   email: string;
   displayName: string;
@@ -142,6 +144,12 @@ export default function AdminUserDetailsPage() {
         }
 
         const userData = userSnap.data() as Record<string, unknown>;
+        const role = (userData.role as string) || 'user';
+        const targetIsAdmin = isAdminUser({
+          isAdmin: userData.isAdmin as boolean | undefined,
+          isPremium: userData.isPremium as boolean | undefined,
+          role,
+        });
         setTarget({
           uid,
           email: (userData.email as string) || '—',
@@ -150,7 +158,8 @@ export default function AdminUserDetailsPage() {
             (userData.fullName as string) ||
             (userData.name as string) ||
             'Usuário',
-          role: (userData.role as string) || 'user',
+          role,
+          isAdmin: targetIsAdmin,
           credits: typeof userData.credits === 'number' ? userData.credits : 0,
           totalCreditsEarned: typeof userData.totalCreditsEarned === 'number' ? userData.totalCreditsEarned : 0,
           recommendedVisa: userData.recommendedVisa as string | undefined,
@@ -351,8 +360,8 @@ export default function AdminUserDetailsPage() {
                         <p className="font-semibold text-slate-800">{target.hasCompletedQuestionnaire ? 'Completo' : 'Pendente'}</p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-slate-500 text-xs">Assinatura</p>
-                        <p className="font-semibold text-slate-800">{target.subscriptionStatus || 'inactive'}</p>
+                        <p className="text-slate-500 text-xs">Modelo de acesso</p>
+                        <p className="font-semibold text-slate-800">{target.isAdmin ? 'Admin' : 'Por créditos'}</p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-3">
                         <p className="text-slate-500 text-xs">Treinos registrados</p>

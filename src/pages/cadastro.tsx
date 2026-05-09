@@ -122,7 +122,7 @@ export default function Cadastro() {
             </h2>
             <p className="text-blue-200 text-lg leading-relaxed">
               {fromQuiz
-                ? 'Crie sua conta e finalize a assinatura para ter acesso completo à sua trilha personalizada.'
+                ? 'Crie sua conta e compre créditos para ter acesso completo à sua trilha personalizada.'
                 : 'Crie sua conta gratuita e receba um plano personalizado para o seu processo de imigração.'}
             </p>
           </div>

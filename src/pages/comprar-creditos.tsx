@@ -103,7 +103,7 @@ export default function ComprarCreditos() {
         <div className="text-center pt-14 pb-10 px-4">
           <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-4 py-1.5 rounded-full text-sm font-semibold mb-5">
             <HiSparkles className="w-4 h-4" />
-            Compre uma vez, use quando quiser. Sem assinatura.
+            Compre uma vez, use quando quiser. Sem mensalidade.
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4 leading-tight">
             Comprar{' '}
@@ -306,7 +306,7 @@ export default function ComprarCreditos() {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
             {[
               { icon: <HiShieldCheck className="w-6 h-6 text-emerald-500 mx-auto mb-2" />, text: 'Pagamento seguro via Stripe' },
-              { icon: <HiCreditCard className="w-6 h-6 text-blue-500 mx-auto mb-2" />, text: 'Sem assinatura recorrente' },
+              { icon: <HiCreditCard className="w-6 h-6 text-blue-500 mx-auto mb-2" />, text: 'Sem mensalidade recorrente' },
               { icon: <FiCheckCircle className="w-6 h-6 text-violet-500 mx-auto mb-2" />, text: 'Créditos sem prazo de validade' },
             ].map((b, i) => (
               <div key={i}>

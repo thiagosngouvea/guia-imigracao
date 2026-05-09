@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
-import { useSubscription } from '../hooks/useSubscription';
+import { useCredits } from '../hooks/useCredits';
 import { updateUserProfile } from '../lib/auth';
 import { getQuestionnaire, QuestionnaireData } from '../lib/visa-service';
 import { getUserTrainingStats, TrainingStats } from '../lib/training-history';
@@ -33,7 +33,7 @@ const ENGLISH_LABELS: Record<string, string> = {
 
 export default function Perfil() {
   const { user, userProfile, loading, refreshUserProfile } = useAuth();
-  const { planTier, hasActiveSubscription } = useSubscription();
+  const { credits, isAdmin } = useCredits();
   const router = useRouter();
 
   const [editingName, setEditingName] = useState(false);
@@ -94,12 +94,6 @@ export default function Perfil() {
       setSavingName(false);
     }
   };
-
-  const planInfo = {
-    free: { label: 'Gratuito', emoji: '🆓', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-    pro: { label: 'Pro', emoji: '⭐', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-    expert: { label: 'Expert', emoji: '🚀', color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200' },
-  }[planTier];
 
   if (loading || !user) {
     return (
@@ -167,8 +161,12 @@ export default function Perfil() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold border ${planInfo.bg} ${planInfo.color}`}>
-                    {planInfo.emoji} {planInfo.label}
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold border ${
+                    isAdmin
+                      ? 'bg-violet-50 border-violet-200 text-violet-700'
+                      : 'bg-amber-50 border-amber-200 text-amber-700'
+                  }`}>
+                    {isAdmin ? '👑 Admin' : `💳 ${credits} créditos`}
                   </span>
                   {currentVisa && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-white/10 text-white border border-white/20">
@@ -330,8 +328,10 @@ export default function Perfil() {
                     </div>
                   )}
                   <div>
-                    <p className="text-xs text-slate-400 font-medium mb-0.5">Plano</p>
-                    <p className={`text-sm font-bold ${planInfo.color}`}>{planInfo.emoji} {planInfo.label}</p>
+                    <p className="text-xs text-slate-400 font-medium mb-0.5">Créditos</p>
+                    <p className={`text-sm font-bold ${isAdmin ? 'text-violet-700' : 'text-amber-700'}`}>
+                      {isAdmin ? 'Ilimitado (admin)' : `${credits} disponíveis`}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -349,22 +349,22 @@ export default function Perfil() {
                       <HiArrowRight className="w-3.5 h-3.5 text-slate-300 ml-auto group-hover:text-slate-500" />
                     </div>
                   </Link>
-                  <Link href="/gerenciar-assinatura">
+                  <Link href="/gerenciar-creditos">
                     <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors group">
                       <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
                         <HiSparkles className="w-4 h-4 text-violet-600" />
                       </div>
-                      <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">Gerenciar Assinatura</span>
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">Gerenciar Créditos</span>
                       <HiArrowRight className="w-3.5 h-3.5 text-slate-300 ml-auto group-hover:text-slate-500" />
                     </div>
                   </Link>
-                  {planTier === 'free' && (
-                    <Link href="/subscription">
+                  {!isAdmin && (
+                    <Link href="/comprar-creditos">
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 cursor-pointer hover:from-blue-100 hover:to-indigo-100 transition-all group">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                           <HiSparkles className="w-4 h-4 text-white" />
                         </div>
-                        <span className="text-sm font-semibold text-blue-700">Fazer Upgrade</span>
+                        <span className="text-sm font-semibold text-blue-700">Comprar Créditos</span>
                         <HiArrowRight className="w-3.5 h-3.5 text-blue-400 ml-auto" />
                       </div>
                     </Link>

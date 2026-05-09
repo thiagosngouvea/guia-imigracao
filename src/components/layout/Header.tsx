@@ -82,7 +82,7 @@ export function Header({ theme = 'dark' }: HeaderProps) {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Badge de créditos (substitui badge de assinatura) */}
+                {/* Badge de créditos */}
                 <CreditBadge theme={theme} />
 
                 {/* User avatar — links to profile */}

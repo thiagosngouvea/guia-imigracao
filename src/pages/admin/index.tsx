@@ -8,7 +8,6 @@ import { useCredits } from '../../hooks/useCredits';
 import { db } from '../../lib/firebase';
 import {
   HiUserGroup,
-  HiCurrencyDollar,
   HiCreditCard,
   HiMagnifyingGlass,
   HiArrowRight,
@@ -29,7 +28,6 @@ interface UserRow {
   spentCredits: number;
   txCount: number;
   selectedVisa: string;
-  subscriptionStatus: string;
   createdAt?: FirestoreDate;
   lastLoginAt?: FirestoreDate;
 }
@@ -129,7 +127,6 @@ export default function AdminPanelPage() {
             spentCredits: agg?.spentCredits ?? 0,
             txCount: agg?.txCount ?? 0,
             selectedVisa: (data.selectedVisa as string) || (data.recommendedVisa as string) || '—',
-            subscriptionStatus: (data.subscriptionStatus as string) || 'inactive',
             createdAt: (data.createdAt as FirestoreDate) ?? null,
             lastLoginAt: (data.lastLoginAt as FirestoreDate) ?? null,
           };
@@ -166,7 +163,6 @@ export default function AdminPanelPage() {
   const stats = useMemo(() => {
     const totalUsers = rows.length;
     const adminUsers = rows.filter((r) => r.isAdmin).length;
-    const activeSubscriptions = rows.filter((r) => ['active', 'trialing'].includes(r.subscriptionStatus)).length;
     const availableCredits = rows.reduce((acc, r) => acc + r.credits, 0);
     const purchasedCredits = rows.reduce((acc, r) => acc + r.purchasedCredits, 0);
     const spentCredits = rows.reduce((acc, r) => acc + r.spentCredits, 0);
@@ -174,7 +170,6 @@ export default function AdminPanelPage() {
     return {
       totalUsers,
       adminUsers,
-      activeSubscriptions,
       availableCredits,
       purchasedCredits,
       spentCredits,
@@ -210,7 +205,7 @@ export default function AdminPanelPage() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { label: 'Usuários', value: stats.totalUsers, icon: <HiUserGroup className="w-5 h-5" />, color: 'from-blue-500 to-indigo-600' },
-              { label: 'Assinaturas ativas', value: stats.activeSubscriptions, icon: <HiCurrencyDollar className="w-5 h-5" />, color: 'from-emerald-500 to-teal-600' },
+              { label: 'Transações de crédito', value: rows.reduce((acc, r) => acc + r.txCount, 0), icon: <HiCreditCard className="w-5 h-5" />, color: 'from-emerald-500 to-teal-600' },
               { label: 'Admins', value: stats.adminUsers, icon: <HiShieldCheck className="w-5 h-5" />, color: 'from-violet-500 to-purple-600' },
               { label: 'Créditos disponíveis', value: stats.availableCredits, icon: <HiCreditCard className="w-5 h-5" />, color: 'from-amber-500 to-orange-500' },
               { label: 'Créditos comprados', value: stats.purchasedCredits, icon: <HiCreditCard className="w-5 h-5" />, color: 'from-cyan-500 to-blue-500' },
@@ -282,11 +277,9 @@ export default function AdminPanelPage() {
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border ${
                             r.isAdmin
                               ? 'bg-violet-50 text-violet-700 border-violet-200'
-                              : ['active', 'trialing'].includes(r.subscriptionStatus)
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-slate-50 text-slate-600 border-slate-200'
                           }`}>
-                            {r.isAdmin ? 'Admin' : r.subscriptionStatus}
+                            {r.isAdmin ? 'Admin' : 'Usuário'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate-600">{formatDate(r.lastLoginAt)}</td>

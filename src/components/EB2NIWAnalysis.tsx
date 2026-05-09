@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/Button';
+import { useCredits } from '../hooks/useCredits';
+import { CreditConfirmModal } from './CreditConfirmModal';
 
 interface CaseAnalysis {
   pdfLink: string;
@@ -31,6 +33,7 @@ interface EB2NIWAnalysisProps {
 }
 
 export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
+  const { credits, isAdmin, canAfford, spend, getCost } = useCredits();
   const [userCase, setUserCase] = useState<UserCase>({
     prong1: '',
     prong2: '',
@@ -47,6 +50,8 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
   });
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showSpendModal, setShowSpendModal] = useState(false);
+  const [consumingCredits, setConsumingCredits] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [masterFileInfo, setMasterFileInfo] = useState<{totalLines: number, loaded: boolean}>({
     totalLines: 0,
@@ -80,7 +85,7 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
     }
   };
 
-  const handleStartAnalysis = async () => {
+  const runAnalysis = async () => {
     if (!userCase.prong1 || !userCase.prong2 || !userCase.prong3) {
       setError('Por favor, preencha todos os 3 prongs do seu caso');
       return;
@@ -167,6 +172,39 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
       setProgress(prev => ({ ...prev, isRunning: false }));
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleStartAnalysis = async () => {
+    if (isAdmin) {
+      await runAnalysis();
+      return;
+    }
+
+    if (!canAfford('eb2niw')) {
+      setError('Créditos insuficientes para iniciar esta análise.');
+      return;
+    }
+
+    setShowSpendModal(true);
+  };
+
+  const handleConfirmSpend = async () => {
+    setConsumingCredits(true);
+    setError(null);
+    try {
+      const success = await spend('eb2niw');
+      if (!success) {
+        setError('Não foi possível descontar os créditos. Tente novamente.');
+        return;
+      }
+      setShowSpendModal(false);
+      await runAnalysis();
+    } catch (err) {
+      console.error('Erro ao consumir créditos no EB2-NIW:', err);
+      setError('Erro ao processar créditos para análise.');
+    } finally {
+      setConsumingCredits(false);
     }
   };
 
@@ -459,6 +497,15 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
           </div>
         </div>
       )}
+      <CreditConfirmModal
+        open={showSpendModal}
+        featureLabel="Análise EB2-NIW"
+        cost={getCost('eb2niw')}
+        credits={credits}
+        loading={consumingCredits}
+        onCancel={() => setShowSpendModal(false)}
+        onConfirm={handleConfirmSpend}
+      />
     </div>
   );
 }
