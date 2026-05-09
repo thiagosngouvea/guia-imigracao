@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { Layout } from '../components/layout/Layout';
-import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { useCredits } from '../hooks/useCredits';
 import { CREDIT_PACKAGES, FEATURE_COSTS, formatPrice } from '../lib/stripe';
@@ -11,7 +10,6 @@ import { db } from '../lib/firebase';
 import {
   HiCreditCard,
   HiShieldCheck,
-  HiCheckCircle,
 } from 'react-icons/hi';
 import {
   HiArrowRight,
@@ -24,7 +22,6 @@ import {
   HiArrowPath,
   HiPlusCircle,
 } from 'react-icons/hi2';
-import { FiCheckCircle } from 'react-icons/fi';
 
 interface CreditHistoryEntry {
   id: string;
@@ -49,10 +46,11 @@ export default function GerenciarCreditos() {
   const [history, setHistory] = useState<CreditHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+    }
+  }, [user, router]);
 
   // Carrega histórico de transações
   useEffect(() => {
@@ -78,7 +76,7 @@ export default function GerenciarCreditos() {
     loadHistory();
   }, [user]);
 
-  const displayName = userProfile?.displayName || userProfile?.name || userProfile?.email || 'Usuário';
+  if (!user) return null;
 
   return (
     <Layout>
