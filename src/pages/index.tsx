@@ -243,6 +243,57 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── DISCOVER VISA CTA ───────────────────────────────────── */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-indigo-50 via-blue-50 to-white p-8 sm:p-10 lg:p-12">
+            <div className="absolute -top-20 -right-16 w-64 h-64 rounded-full bg-indigo-300/20 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-16 w-72 h-72 rounded-full bg-blue-300/20 blur-3xl pointer-events-none" />
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+              <div className="lg:col-span-2">
+                <div className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-5">
+                  <HiSparkles className="w-3.5 h-3.5" />
+                  Descubra seu visto ideal
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-4">
+                  Faça um teste gratuito e veja
+                  <br />
+                  qual visto combina com seu perfil
+                </h2>
+                <p className="text-slate-600 text-lg leading-relaxed max-w-2xl">
+                  Responda algumas perguntas e receba uma recomendação inicial com IA. A experiência é gratuita e limitada, ideal para dar o primeiro passo com segurança.
+                </p>
+              </div>
+
+              <div className="lg:justify-self-end w-full lg:w-auto">
+                <div className="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Inclui no teste</p>
+                  <ul className="space-y-2 mb-5">
+                    {[
+                      'Diagnóstico inicial do perfil',
+                      'Sugestão de visto mais compatível',
+                      'Próximo passo recomendado',
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-slate-700">
+                        <HiCheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/teste-gratuito">
+                    <button className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold px-5 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35">
+                      Descobrir meu visto ideal
+                      <HiArrowRight className="w-4 h-4" />
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── VISA TYPES ──────────────────────────────────────────── */}
       <section className="py-28" style={{ background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
