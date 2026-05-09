@@ -25,6 +25,29 @@ service cloud.firestore {
         );
     }
 
+    function isLeadOwnerByEmail() {
+      return isAuthenticated() &&
+        resource != null &&
+        resource.data.email == request.auth.token.email;
+    }
+
+    // Fluxo público do teste gratuito:
+    // permite apenas transição de status "lead" -> "quiz_completed"
+    // mantendo campos-base do lead imutáveis.
+    function isPublicQuizCompletionUpdate() {
+      return resource != null &&
+        resource.data.source == 'teste-gratuito' &&
+        resource.data.status == 'lead' &&
+        request.resource.data.status == 'quiz_completed' &&
+        request.resource.data.source == resource.data.source &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.fullName == resource.data.fullName &&
+        request.resource.data.whatsapp == resource.data.whatsapp &&
+        request.resource.data.age == resource.data.age &&
+        request.resource.data.timeframe == resource.data.timeframe &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
     // ============================================================
     // Users collection
     // ID do documento = UID do usuário
@@ -170,13 +193,12 @@ service cloud.firestore {
     // ============================================================
     // Leads collection (captura de leads do teste-gratuito.tsx)
     // Qualquer pessoa pode criar (não requer login)
-    // Somente admins podem ler e atualizar
+    // Atualização pública permitida apenas para concluir quiz do próprio lead
     // ============================================================
     match /leads/{leadId} {
       allow create: if true; // público — para capturar leads sem conta
-      allow read, update: if isAuthenticated() && (
-        resource != null && resource.data.email == request.auth.token.email
-      ) || isAdmin();
+      allow read: if isLeadOwnerByEmail() || isAdmin();
+      allow update: if isLeadOwnerByEmail() || isAdmin() || isPublicQuizCompletionUpdate();
       allow delete: if false;
     }
 
