@@ -441,7 +441,23 @@ export default function Home() {
                   </div>
 
                   <div className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 border border-indigo-400/20 rounded-2xl p-4">
-                    <p className="text-xs text-indigo-200 mb-2">Feedback final da IA</p>
+                    <p className="text-xs text-indigo-200 mb-3">Feedback final da IA</p>
+
+                    <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Nota geral</p>
+                          <p className="text-lg font-black text-white">8.4/10</p>
+                        </div>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[11px] font-semibold text-emerald-300">
+                          Aprovado provável
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Boa coerência nas respostas, com intenção de viagem bem definida. Há espaço para melhorar objetividade e vínculos no Brasil.
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-3 gap-2 text-center mb-3">
                       <div className="bg-slate-900/70 rounded-lg py-2">
                         <p className="text-[10px] text-slate-400">Clareza</p>
@@ -456,12 +472,28 @@ export default function Home() {
                         <p className="text-sm font-bold text-emerald-300">8.5</p>
                       </div>
                     </div>
-                    <div className="inline-flex items-center gap-2 mb-2 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[11px] font-semibold text-emerald-300">
-                      Veredito: Aprovado provável
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                      <div className="bg-emerald-900/20 border border-emerald-500/20 rounded-lg p-2.5">
+                        <p className="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider mb-1">Pontos fortes</p>
+                        <p className="text-[11px] text-slate-200 leading-relaxed">Respostas consistentes e propósito da viagem convincente.</p>
+                      </div>
+                      <div className="bg-red-900/20 border border-red-500/20 rounded-lg p-2.5">
+                        <p className="text-[10px] font-semibold text-red-300 uppercase tracking-wider mb-1">A melhorar</p>
+                        <p className="text-[11px] text-slate-200 leading-relaxed">Reduzir pausas e explicar vínculos profissionais com mais precisão.</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-200 leading-relaxed">
-                      Ponto de melhoria: reduzir pausas longas e reforçar vínculos no Brasil em até 2 frases objetivas.
-                    </p>
+
+                    <div className="bg-indigo-900/25 border border-indigo-400/20 rounded-lg p-2.5">
+                      <p className="text-[10px] font-semibold text-indigo-200 uppercase tracking-wider mb-1">Próximos passos</p>
+                      <p className="text-[11px] text-slate-200 leading-relaxed">
+                        1) Treinar respostas de 20 a 30 segundos.
+                        <br />
+                        2) Destacar emprego, renda e laços familiares no Brasil.
+                        <br />
+                        3) Evitar detalhes extras fora da pergunta.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
