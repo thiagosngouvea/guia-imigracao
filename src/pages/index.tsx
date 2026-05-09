@@ -98,7 +98,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <Layout>
+      <Layout showHeader={false}>
         <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-surface)' }}>
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -109,7 +109,7 @@ export default function Home() {
   if (user) return null;
 
   return (
-    <Layout>
+    <Layout showHeader={false}>
       {/* ── HERO ────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden" style={{ minHeight: '92vh', display: 'flex', alignItems: 'center' }}>
         {/* Background */}
