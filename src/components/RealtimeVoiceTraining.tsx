@@ -252,6 +252,10 @@ export function RealtimeVoiceTraining({
   // React 18 StrictMode mounts → unmounts → remounts in dev; without this
   // guard the second mount creates a second RTCPeerConnection causing duplicates.
   const hasConnectedRef = useRef(false);
+  // One-shot flag: response.create should fire only once per session
+  const sessionReadyRef = useRef(false);
+  // Flag set if the server rejects our session.update
+  const sessionErrorRef = useRef(false);
 
   // ── Session timer ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -275,6 +279,9 @@ export function RealtimeVoiceTraining({
 
     switch (type) {
       case 'session.created':
+        setStatus('connected');
+        break;
+
       case 'session.updated':
         setStatus('connected');
         break;
@@ -311,13 +318,13 @@ export function RealtimeVoiceTraining({
       }
 
       case 'response.created':
-      case 'response.audio.delta':
+      case 'response.output_audio.delta':
         setStatus('ai-speaking');
         // Mute mic while AI is speaking to avoid feedback loop
         localStreamRef.current?.getTracks().forEach((t) => { t.enabled = false; });
         break;
 
-      case 'response.audio.done':
+      case 'response.output_audio.done':
       case 'response.done':
         setStatus('connected');
         // Re-enable mic now that AI has finished speaking
@@ -332,7 +339,7 @@ export function RealtimeVoiceTraining({
         }
         break;
 
-      case 'response.audio_transcript.delta': {
+      case 'response.output_audio_transcript.delta': {
         const delta = (msg.delta as string) || '';
         if (!aiTranscriptIdRef.current) {
           const id = `ai-${Date.now()}`;
@@ -353,7 +360,7 @@ export function RealtimeVoiceTraining({
         break;
       }
 
-      case 'response.audio_transcript.done': {
+      case 'response.output_audio_transcript.done': {
         const finalText = (msg.transcript as string) || '';
         // Strip the completion tag from the displayed text
         const cleanText = finalText.replace('[INTERVIEW_COMPLETE]', '').trim();
@@ -397,8 +404,11 @@ export function RealtimeVoiceTraining({
       }
 
       case 'error': {
-        const errMsg = ((msg.error as Record<string, unknown>)?.message as string) || 'Unknown error';
-        console.error('Realtime API error:', errMsg);
+        const errObj = msg.error as Record<string, unknown>;
+        const errMsg = (errObj?.message as string) || 'Unknown error';
+        // Log the full raw error so we can see exactly what field was rejected
+        console.error('Realtime API error event:', JSON.stringify(msg, null, 2));
+        sessionErrorRef.current = true;
         setErrorMsg(errMsg);
         setStatus('error');
         break;
@@ -422,6 +432,7 @@ export function RealtimeVoiceTraining({
     dcRef.current = null;
     pcRef.current = null;
     localStreamRef.current = null;
+    hasConnectedRef.current = false;
   }, []);
 
   // ── Connect ────────────────────────────────────────────────────────────────
@@ -435,82 +446,84 @@ export function RealtimeVoiceTraining({
     setErrorMsg('');
     setTranscript([]);
 
+    let pc: RTCPeerConnection | null = null;
+
     try {
-      // 1. Get ephemeral token
-      const tokenRes = await fetch('/api/realtime-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language, scenario }),
-      });
+      // 1. Create peer connection
+      const activePc = new RTCPeerConnection();
+      pc = activePc;
+      pcRef.current = activePc;
 
-      if (!tokenRes.ok) {
-        const err = await tokenRes.json();
-        throw new Error(err.error || 'Failed to get session token');
-      }
-
-      const { clientSecret } = await tokenRes.json() as { clientSecret: string };
-
-      // 2. Create peer connection
-      const pc = new RTCPeerConnection();
-      pcRef.current = pc;
-
-      // 3. Audio element for AI voice
+      // 2. Audio element for AI voice
       const audioEl = document.createElement('audio');
       audioEl.autoplay = true;
       audioEl.volume = 1;
       audioElRef.current = audioEl;
-      pc.ontrack = (e) => { audioEl.srcObject = e.streams[0]; };
+      activePc.ontrack = (e) => { audioEl.srcObject = e.streams[0]; };
 
-      // 4. Capture microphone
+      // 3. Capture microphone
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (pcRef.current !== activePc) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       localStreamRef.current = stream;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      stream.getTracks().forEach((track) => activePc.addTrack(track, stream));
 
-      // 5. Data channel for events
-      const dc = pc.createDataChannel('oai-events');
+      // 4. Data channel for events
+      const dc = activePc.createDataChannel('oai-events');
+      if (pcRef.current !== activePc) {
+        dc.close();
+        return;
+      }
       dcRef.current = dc;
       dc.onmessage = handleDataChannelMessage;
 
-      // When the channel opens, trigger the AI to start the interview.
-      // The session instructions already tell it to greet and ask the first question.
+      // When the channel opens, kick off the interview.
+      // (The backend has already configured the session instructions, voice, and VAD)
       dc.onopen = () => {
-        dc.send(JSON.stringify({
-          type: 'response.create',
-          response: { modalities: ['text', 'audio'] },
-        }));
+        setTimeout(() => {
+          const activeDc = dcRef.current;
+          if (activeDc?.readyState === 'open') {
+            activeDc.send(JSON.stringify({ type: 'response.create' }));
+          }
+        }, 500);
       };
 
-      // 6. Create SDP offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      // 5. Create SDP offer
+      const offer = await activePc.createOffer();
+      if (pcRef.current !== activePc) return;
+      await activePc.setLocalDescription(offer);
+      if (pcRef.current !== activePc) return;
 
-      // 7. Exchange SDP with OpenAI Realtime
-      const sdpRes = await fetch(
-        `https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${clientSecret}`,
-            'Content-Type': 'application/sdp',
-          },
-          body: offer.sdp,
-        }
-      );
+      // 6. Exchange SDP with our backend (which configures and exchanges with OpenAI)
+      const tokenRes = await fetch('/api/realtime-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language, scenario, sdp: offer.sdp }),
+      });
 
-      if (!sdpRes.ok) {
-        throw new Error(`SDP exchange failed: ${sdpRes.status}`);
+      if (pcRef.current !== activePc) return;
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        throw new Error(errText || 'Failed to exchange SDP with backend');
       }
 
-      const answerSdp = await sdpRes.text();
-      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+      const answerSdp = await tokenRes.text();
+      if (pcRef.current !== activePc) return;
+      await activePc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
     } catch (err: unknown) {
+      if (pcRef.current !== pc) {
+        return;
+      }
       const message = err instanceof Error ? err.message : 'Connection failed';
       setErrorMsg(message);
       setStatus('error');
       cleanup();
     }
-  }, [language, scenario, handleDataChannelMessage]);
+  }, [language, scenario, handleDataChannelMessage, cleanup]);
 
   // ── Disconnect + generate feedback ────────────────────────────────────────
   const disconnect = useCallback(async () => {

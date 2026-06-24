@@ -480,13 +480,6 @@ export default function Vistos() {
                     >
                       Treinar com IA
                     </Button>
-                    
-                    <Button 
-                      variant="outline"
-                      className="flex-1 sm:flex-none"
-                    >
-                      Falar com Especialista
-                    </Button>
                   </div>
                 </div>
               </div>

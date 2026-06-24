@@ -217,9 +217,6 @@ export default function Dashboard() {
     if (userProfile?.recommendedVisa) {
       tasks.push({ id: 4, title: 'Revisar documentos', description: `Lista para o visto ${userProfile.recommendedVisa}`, priority: 'medium', action: 'Ver Lista' });
     }
-    if (tasks.length < 3) {
-      tasks.push({ id: 5, title: 'Agendar consulta', description: 'Fale com um advogado de imigração', priority: 'low', action: 'Agendar' });
-    }
     return tasks.slice(0, 3);
   };
 
@@ -716,21 +713,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Help card */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2.5 bg-amber-100 rounded-xl">
-                    <MdSupportAgent className="w-5 h-5 text-amber-700" />
-                  </div>
-                  <h3 className="font-bold text-amber-900 text-sm">Precisa de Ajuda?</h3>
-                </div>
-                <p className="text-amber-800 text-xs mb-4 leading-relaxed">
-                  Nossa equipe de especialistas está pronta para te ajudar em qualquer etapa do processo de imigração.
-                </p>
-                <Button variant="outline" size="sm" className="w-full border-amber-300 text-amber-800 hover:bg-amber-100 gap-2">
-                  <MdSupportAgent className="w-4 h-4" /> Falar com Especialista
-                </Button>
-              </div>
+
 
             </div>
           </div>

@@ -249,12 +249,6 @@ export default function DocumentosVisto() {
             >
               📊 Ver Dashboard
             </Button>
-            <Button 
-              variant="outline"
-              className="flex-1"
-            >
-              💬 Falar com Especialista
-            </Button>
           </div>
 
           {/* Help Section */}

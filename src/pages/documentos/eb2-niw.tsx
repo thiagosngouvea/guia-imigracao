@@ -376,9 +376,6 @@ export default function EB2NIWDocuments() {
               </Button>
             </Link>
             <Button variant="outline" className="px-8 py-3">
-              📧 Falar com Especialista
-            </Button>
-            <Button variant="outline" className="px-8 py-3">
               💾 Salvar Progresso
             </Button>
           </div>

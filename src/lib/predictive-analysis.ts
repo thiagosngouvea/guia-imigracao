@@ -535,24 +535,7 @@ function getGeneralRecommendations(factors: ScoreFactor[], visaType: string): Re
     ]
   });
 
-  // Recomendação de consulta especializada
-  const overallScore = calculateOverallScore(factors);
-  if (overallScore < 70) {
-    recommendations.push({
-      id: 'specialist_consultation',
-      title: 'Consulte um Especialista',
-      description: 'Seu perfil pode se beneficiar de orientação profissional',
-      priority: 'medium',
-      category: 'short_term',
-      estimatedImpact: 30,
-      actionItems: [
-        'Agende uma consulta com advogado de imigração',
-        'Discuta estratégias específicas para seu caso',
-        'Obtenha orientação sobre documentação',
-        'Esclareça dúvidas sobre o processo'
-      ]
-    });
-  }
+
 
   return recommendations;
 }
