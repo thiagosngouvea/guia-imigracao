@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Button } from './ui/Button';
 import { useCredits } from '../hooks/useCredits';
 import { CreditConfirmModal } from './CreditConfirmModal';
@@ -33,6 +34,7 @@ interface EB2NIWAnalysisProps {
 }
 
 export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
+  const router = useRouter();
   const { credits, isAdmin, canAfford, spend, getCost } = useCredits();
   const [userCase, setUserCase] = useState<UserCase>({
     prong1: '',
@@ -182,7 +184,7 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
     }
 
     if (!canAfford('eb2niw')) {
-      setError('Créditos insuficientes para iniciar esta análise.');
+      router.push('/comprar-creditos');
       return;
     }
 
@@ -391,7 +393,11 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
           disabled={isAnalyzing || !masterFileInfo.loaded || !userCase.prong1 || !userCase.prong2 || !userCase.prong3}
           className="w-full py-4 text-lg"
         >
-          {isAnalyzing ? 'Analisando...' : !masterFileInfo.loaded ? 'Carregando arquivo...' : 'Iniciar Análise'}
+          {isAnalyzing 
+            ? 'Analisando...' 
+            : !masterFileInfo.loaded 
+            ? 'Carregando arquivo...' 
+            : `Iniciar Análise (${getCost('eb2niw')} créditos)`}
         </Button>
       </div>
 

@@ -4,7 +4,6 @@ import { Layout } from '../components/layout/Layout';
 import { EB2NIWAnalysis } from '../components/EB2NIWAnalysis';
 import { useAuth } from '../hooks/useAuth';
 import { SubscriptionGuard } from '../components/SubscriptionGuard';
-import { CreditGate } from '../components/CreditGate';
 import { HiChartBar, HiDocumentReport } from 'react-icons/hi';
 import { HiExclamationTriangle, HiLightBulb, HiCpuChip, HiSparkles, HiClipboardDocument, HiDocumentCheck } from 'react-icons/hi2';
 
@@ -72,10 +71,6 @@ export default function EB2NIWPage() {
   return (
     <SubscriptionGuard>
       <Layout>
-        <CreditGate
-          feature="eb2niw"
-          message="Compare seu caso EB2-NIW com casos reais negados pelo USCIS usando IA especializada."
-        >
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Hero Section */}
@@ -236,7 +231,6 @@ export default function EB2NIWPage() {
             </div>
           </div>
         </div>
-        </CreditGate>
       </Layout>
     </SubscriptionGuard>
   );
