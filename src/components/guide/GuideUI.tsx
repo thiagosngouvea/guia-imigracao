@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { HiArrowRight, HiArrowUpRight, HiCheckCircle, HiGlobeAmericas } from 'react-icons/hi2';
+import { HiArrowRight, HiArrowUpRight, HiCheckCircle } from 'react-icons/hi2';
 import type { Country, CountryId } from '../../lib/global-guide';
 import { CountryFlag } from './CountryFlag';
 
@@ -29,14 +29,10 @@ export function CountryCard({ country, index, compact = false }: { country: Coun
 }
 
 export function HeroMap() {
-  return <div className="guide-map" aria-label="Ilustração de um mapa de possibilidades de imigração" role="img">
-    <div className="guide-map-globe" /><div className="guide-map-line" />
-    <span className="guide-map-dot one" /><span className="guide-map-dot two" /><span className="guide-map-dot three" />
-    <div className="guide-map-main"><HiGlobeAmericas className="size-11 mx-auto mb-5 text-emerald-200" /><strong>O mundo<br />é uma opção.</strong><span>Seu próximo capítulo começa aqui</span></div>
-    <div className="guide-map-note a"><CountryFlag countryId="portugal" className="w-7" /> Portugal</div>
-    <div className="guide-map-note b"><CountryFlag countryId="canada" className="w-7" /> Canadá</div>
-    <div className="guide-map-note c"><CountryFlag countryId="paraguai" className="w-7" /> Paraguai</div>
-    <div className="guide-map-note d"><CountryFlag countryId="alemanha" className="w-7" /> Alemanha</div>
+  return <div className="guide-map" aria-label="Bandeiras dos Estados Unidos, Canadá, Portugal, Alemanha, Espanha, Itália e Paraguai" role="img">
+    {(['eua', 'canada', 'portugal', 'alemanha', 'espanha', 'italia', 'paraguai'] as const).map((countryId) =>
+      <span key={countryId} className={`guide-map-flag ${countryId}`}><CountryFlag countryId={countryId} className="w-full" /></span>
+    )}
   </div>;
 }
 
