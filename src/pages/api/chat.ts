@@ -1,9 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-});
+import { requireAuth } from '../../lib/server/auth';
+import { getOpenAI } from '../../lib/server/openai';
+import { enforceRateLimit } from '../../lib/server/rate-limit';
 
 interface ChatRequest {
   message: string;
@@ -31,7 +30,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const user = await requireAuth(req, res);
+  if (!user) return;
+  if (!await enforceRateLimit(res, {
+    scope: 'chat', key: user.uid, limit: 20, windowSeconds: 60,
+  })) return;
+
   const { message, scenario, language, questionIndex, context }: ChatRequest = req.body;
+  if (!message?.trim() || message.length > 4000 ||
+      !scenario?.visaType || !Array.isArray(context) || context.length > 30 ||
+      (language !== 'pt' && language !== 'en')) {
+    return res.status(400).json({ error: 'Invalid request' });
+  }
 
   try {
     // Construir o prompt do sistema baseado no cenário e idioma
@@ -99,7 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Chamar a API do OpenAI
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: messages,
       max_tokens: 500,

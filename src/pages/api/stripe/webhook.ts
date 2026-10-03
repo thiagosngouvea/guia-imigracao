@@ -1,21 +1,11 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import Stripe from 'stripe';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
-import { addCredits } from '../../../lib/credits';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { FieldValue } from 'firebase-admin/firestore';
+import type Stripe from 'stripe';
+import { CREDIT_PACKAGES, CreditPackageId } from '../../../lib/stripe';
+import { adminDb } from '../../../lib/server/firebase-admin';
+import { getStripeServer } from '../../../lib/server/stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-});
-
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-// Desabilitar bodyParser para verificar assinatura do Stripe
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const config = { api: { bodyParser: false } };
 
 async function getRawBody(req: NextApiRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -27,81 +17,95 @@ async function getRawBody(req: NextApiRequest): Promise<Buffer> {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const signature = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (typeof signature !== 'string' || !webhookSecret) {
+    return res.status(503).json({ error: 'Webhook is not configured' });
   }
 
-  const sig = req.headers['stripe-signature'] as string;
   let event: Stripe.Event;
-
   try {
-    const rawBody = await getRawBody(req);
-    event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err);
+    event = getStripeServer().webhooks.constructEvent(
+      await getRawBody(req),
+      signature,
+      webhookSecret
+    );
+  } catch (error) {
+    console.error('Webhook signature verification failed:', error);
     return res.status(400).json({ error: 'Invalid signature' });
   }
 
   try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutCompleted(session);
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
+    if (event.type === 'checkout.session.completed') {
+      const result = await creditCompletedCheckout(event, event.data.object);
+      return res.status(200).json({ received: true, duplicate: result.duplicate });
     }
-
-    res.status(200).json({ received: true });
+    return res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Error processing webhook:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error processing Stripe webhook:', error);
+    return res.status(500).json({ error: 'Webhook processing failed' });
   }
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+async function creditCompletedCheckout(
+  event: Stripe.Event,
+  session: Stripe.Checkout.Session
+): Promise<{ duplicate: boolean }> {
+  if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
+    throw new Error(`Checkout session ${session.id} is not paid`);
+  }
+
   const userId = session.metadata?.userId;
-  const packageId = session.metadata?.packageId;
-  const creditsAmountStr = session.metadata?.creditsAmount;
+  const packageId = session.metadata?.packageId as CreditPackageId | undefined;
+  const pkg = packageId ? CREDIT_PACKAGES[packageId] : undefined;
+  if (!userId || !packageId || !pkg) throw new Error('Invalid checkout metadata');
 
-  if (!userId || !creditsAmountStr) {
-    console.error('Missing userId or creditsAmount in session metadata');
-    return;
-  }
+  // A checkout session can occasionally be delivered in more than one Stripe
+  // event. Keying by session ID prevents crediting the same purchase twice.
+  const eventRef = adminDb.collection('_stripeCheckouts').doc(session.id);
+  const userRef = adminDb.collection('users').doc(userId);
+  const historyRef = userRef.collection('creditHistory').doc(session.id);
 
-  const creditsAmount = parseInt(creditsAmountStr, 10);
-  if (isNaN(creditsAmount) || creditsAmount <= 0) {
-    console.error('Invalid creditsAmount in metadata:', creditsAmountStr);
-    return;
-  }
+  return adminDb.runTransaction(async (transaction) => {
+    const [processedEvent, userSnapshot] = await Promise.all([
+      transaction.get(eventRef),
+      transaction.get(userRef),
+    ]);
 
-  // Credita os créditos ao usuário
-  const result = await addCredits(userId, creditsAmount, {
-    type: 'purchase',
-    packageId: packageId ?? undefined,
-    stripeSessionId: session.id,
-    description: `Compra de ${creditsAmount} créditos (pacote ${packageId ?? 'desconhecido'})`,
-  });
+    if (processedEvent.exists) return { duplicate: true };
+    if (!userSnapshot.exists) throw new Error(`User ${userId} not found`);
 
-  if (!result.success) {
-    console.error('Falha ao creditar créditos para userId:', userId);
-    return;
-  }
+    const currentBalance = Number(userSnapshot.data()?.credits) || 0;
+    const newBalance = currentBalance + pkg.totalCredits;
 
-  // Atualiza metadados de compra no perfil do usuário (opcional)
-  try {
-    await updateDoc(doc(db, 'users', userId), {
-      stripeCustomerId: session.customer as string,
-      lastPurchaseAt: serverTimestamp(),
-      lastPackageId: packageId ?? null,
-      updatedAt: serverTimestamp(),
+    transaction.update(userRef, {
+      credits: newBalance,
+      totalCreditsEarned: FieldValue.increment(pkg.totalCredits),
+      stripeCustomerId: typeof session.customer === 'string' ? session.customer : null,
+      lastPurchaseAt: FieldValue.serverTimestamp(),
+      lastPackageId: packageId,
+      updatedAt: FieldValue.serverTimestamp(),
     });
-  } catch (err) {
-    // Não critico — os créditos já foram creditados com sucesso
-    console.warn('Erro ao atualizar metadados do usuário:', err);
-  }
+    transaction.set(historyRef, {
+      userId,
+      type: 'purchase',
+      amount: pkg.totalCredits,
+      balanceAfter: newBalance,
+      packageId,
+      stripeSessionId: session.id,
+      description: `Compra de ${pkg.totalCredits} créditos (${pkg.name})`,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    transaction.set(eventRef, {
+      eventId: event.id,
+      type: event.type,
+      stripeSessionId: session.id,
+      userId,
+      processedAt: FieldValue.serverTimestamp(),
+    });
 
-  console.log(`✅ ${creditsAmount} créditos creditados para userId: ${userId} (pacote: ${packageId})`);
+    return { duplicate: false };
+  });
 }

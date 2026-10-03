@@ -1,4 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { requireAuth } from '../../lib/server/auth';
+import { enforceRateLimit } from '../../lib/server/rate-limit';
 
 interface ScenarioPayload {
   id: string;
@@ -86,17 +88,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const user = await requireAuth(req, res);
+  if (!user) return;
+  if (!await enforceRateLimit(res, {
+    scope: 'realtime-session', key: user.uid, limit: 5, windowSeconds: 300,
+  })) return;
+
   const { language, scenario, sdp } = req.body as {
     language: 'pt' | 'en';
     scenario: ScenarioPayload;
     sdp: string;
   };
 
-  if (!language || !scenario || !sdp) {
+  if (!language || !scenario?.visaType || !sdp || sdp.length > 100000 ||
+      (language !== 'pt' && language !== 'en')) {
     return res.status(400).json({ error: 'language, scenario, and sdp are required' });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }

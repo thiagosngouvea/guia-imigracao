@@ -198,7 +198,6 @@ export default function TesteGratuitoPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('lead');
   const [quizStep, setQuizStep] = useState(0); // 0–3 within quiz
-  const [loadingSubscribe, setLoadingSubscribe] = useState<string | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const leadDocId = useRef<string | null>(null); // Firestore doc ID do lead
 
@@ -224,6 +223,7 @@ export default function TesteGratuitoPage() {
 
   const [result, setResult] = useState<FreeVisaResult | null>(null);
   const [leadErrors, setLeadErrors] = useState<Partial<LeadData>>({});
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Scroll to top on step change
   useEffect(() => {
@@ -282,6 +282,7 @@ export default function TesteGratuitoPage() {
 
   async function handleQuizFinish() {
     setStep('analyzing');
+    setAnalysisError(null);
 
     const payload: FreeQuizData = {
       fullName: lead.fullName,
@@ -308,20 +309,16 @@ export default function TesteGratuitoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      analysisResult = await res.json();
-    } catch {
-      // Fallback
-      analysisResult = {
-        topVisa: 'EB-2 NIW',
-        topVisaScore: 68,
-        secondVisa: 'H-1B',
-        secondVisaScore: 51,
-        thirdVisa: 'F-1',
-        thirdVisaScore: 40,
-        profileSummary: 'Perfil com boa formação acadêmica e experiência profissional.',
-        topVisaReason:
-          'Seu nível de educação e experiência se encaixam bem nos critérios do EB-2 NIW.',
-      };
+      const responseData = await res.json();
+      if (!res.ok) throw new Error(responseData.error || 'Falha ao analisar o perfil');
+      analysisResult = responseData as FreeVisaResult;
+    } catch (error) {
+      setAnalysisError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível concluir a análise agora. Tente novamente.'
+      );
+      return;
     }
 
     setResult(analysisResult);
@@ -358,18 +355,6 @@ export default function TesteGratuitoPage() {
     }
 
     setStep('result');
-  }
-
-  async function handleSubscribe(planId: 'monthly' | 'yearly') {
-    setLoadingSubscribe(planId);
-    // Leva para cadastro com o plano e dados do lead em query params.
-    // O cadastro.tsx vai ler esses params e iniciar o checkout Stripe logo após o registro.
-    router.push(
-      `/cadastro?plan=${planId}` +
-      `&from=quiz` +
-      `&name=${encodeURIComponent(lead.fullName)}` +
-      `&email=${encodeURIComponent(lead.email)}`
-    );
   }
 
   // ── Render steps ────────────────────────────────────────────────────────────
@@ -821,19 +806,33 @@ export default function TesteGratuitoPage() {
         {step === 'analyzing' && (
           <div className="flex items-center justify-center min-h-[80vh]">
             <div className="text-center px-4 animate-fade-in">
-              <div className="relative inline-flex items-center justify-center w-24 h-24 mb-8">
+              {analysisError && (
+                <div className="max-w-md">
+                  <h2 className="text-2xl font-extrabold text-slate-900 mb-3">
+                    Não foi possível concluir a análise
+                  </h2>
+                  <p className="text-slate-500 text-sm mb-6">{analysisError}</p>
+                  <button
+                    onClick={handleQuizFinish}
+                    className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+              <div className={`relative inline-flex items-center justify-center w-24 h-24 mb-8 ${analysisError ? 'hidden' : ''}`}>
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 animate-ping opacity-20" />
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-2xl shadow-blue-500/30">
                   <HiCpuChip className="w-10 h-10 text-white" />
                 </div>
               </div>
-              <h2 className="text-2xl font-extrabold text-slate-900 mb-3">
+              <h2 className={`text-2xl font-extrabold text-slate-900 mb-3 ${analysisError ? 'hidden' : ''}`}>
                 Analisando seu perfil com IA...
               </h2>
-              <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed">
+              <p className={`text-slate-500 text-sm max-w-xs mx-auto leading-relaxed ${analysisError ? 'hidden' : ''}`}>
                 Nossa IA está comparando mais de 50 critérios do seu perfil com os requisitos dos principais vistos americanos.
               </p>
-              <div className="mt-8 flex justify-center gap-1.5">
+              <div className={`mt-8 justify-center gap-1.5 ${analysisError ? 'hidden' : 'flex'}`}>
                 {[0, 1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
@@ -1039,7 +1038,6 @@ export default function TesteGratuitoPage() {
                           <button
                             id={`buy-credits-${key}-btn`}
                             onClick={() => router.push(`/cadastro?from=quiz&name=${encodeURIComponent(lead.fullName)}&email=${encodeURIComponent(lead.email)}`)}
-                            disabled={!!loadingSubscribe}
                             className={`w-full inline-flex items-center justify-center gap-2 font-bold text-sm rounded-xl px-5 py-3.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] ${
                               isPopular
                                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/25'

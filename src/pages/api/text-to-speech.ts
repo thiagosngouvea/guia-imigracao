@@ -1,43 +1,36 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-});
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { requireAuth } from '../../lib/server/auth';
+import { getOpenAI } from '../../lib/server/openai';
+import { enforceRateLimit } from '../../lib/server/rate-limit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === "POST") {
-    const { text, language } = req.body;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    if (!text) {
-      return res.status(400).json({ error: "Text is required" });
-    }
+  const user = await requireAuth(req, res);
+  if (!user) return;
+  if (!await enforceRateLimit(res, {
+    scope: 'text-to-speech', key: user.uid, limit: 20, windowSeconds: 60,
+  })) return;
 
-    try {
-      // Escolher voz baseada no idioma
-      const voice = language === 'pt' ? 'nova' : 'alloy'; // nova tem sotaque mais neutro
-      
-      const mp3 = await client.audio.speech.create({
-        model: "tts-1-hd", // Modelo HD para melhor qualidade
-        voice: voice,
-        input: text,
-        response_format: "mp3",
-        speed: 0.9, // Velocidade um pouco mais lenta para entrevistas
-      });
+  const { text, language } = req.body as { text?: string; language?: string };
+  if (!text?.trim() || text.length > 4000) {
+    return res.status(400).json({ error: 'Text must contain between 1 and 4000 characters' });
+  }
 
-      const buffer = Buffer.from(await mp3.arrayBuffer());
-      const audioBase64 = buffer.toString('base64');
-
-      return res.status(200).json({ 
-        audio: audioBase64,
-        mimeType: 'audio/mpeg'
-      });
-    } catch (error) {
-      console.error("Error generating speech:", error);
-      return res.status(500).json({ error: "Failed to generate speech" });
-    }
-  } else {
-    res.setHeader("Allow", ["POST"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  try {
+    const mp3 = await getOpenAI().audio.speech.create({
+      model: 'tts-1-hd',
+      voice: language === 'pt' ? 'nova' : 'alloy',
+      input: text,
+      response_format: 'mp3',
+      speed: 0.9,
+    });
+    const audio = Buffer.from(await mp3.arrayBuffer()).toString('base64');
+    return res.status(200).json({ audio, mimeType: 'audio/mpeg' });
+  } catch (error) {
+    console.error('Error generating speech:', error);
+    return res.status(502).json({ error: 'Failed to generate speech' });
   }
 }
+
+export const config = { api: { bodyParser: { sizeLimit: '64kb' } } };

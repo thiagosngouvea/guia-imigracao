@@ -1,4 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { requireAuth } from '../../lib/server/auth';
+import { enforceRateLimit } from '../../lib/server/rate-limit';
 
 interface TranscriptEntry {
   role: 'user' | 'ai';
@@ -26,13 +28,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const user = await requireAuth(req, res);
+  if (!user) return;
+  if (!await enforceRateLimit(res, {
+    scope: 'realtime-feedback', key: user.uid, limit: 10, windowSeconds: 300,
+  })) return;
+
   const { transcript, visaType, scenarioName, language } = req.body as FeedbackRequest;
 
-  if (!transcript || transcript.length === 0) {
+  if (!Array.isArray(transcript) || transcript.length === 0 || transcript.length > 100 ||
+      transcript.some((entry) => !entry.text || entry.text.length > 4000)) {
     return res.status(400).json({ error: 'Transcript is required' });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }

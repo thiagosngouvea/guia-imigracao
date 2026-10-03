@@ -1,7 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
+import { requireAuth } from '../../lib/server/auth';
+import { spendUserCredits } from '../../lib/server/credits';
+import { getOpenAI } from '../../lib/server/openai';
+import { enforceRateLimit } from '../../lib/server/rate-limit';
 
 interface UserCase {
   prong1: string;
@@ -21,42 +24,44 @@ interface CaseAnalysis {
   isNIW: boolean;
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 // Função para extrair texto de PDF via URL
 async function extractTextFromUrl(url: string): Promise<string> {
-  try {
-    // Criar AbortController para timeout manual
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const parsedUrl = new URL(url);
+  if (parsedUrl.protocol !== 'https:' ||
+      !(parsedUrl.hostname === 'uscis.gov' || parsedUrl.hostname.endsWith('.uscis.gov')) ||
+      !parsedUrl.pathname.toLowerCase().endsWith('.pdf')) {
+    throw new Error('PDF URL is not an approved USCIS URL');
+  }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  try {
     const response = await fetch(url, { 
       signal: controller.signal,
+      redirect: 'error',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'MoveEasy/1.0 (+https://moveeasy.app)'
       }
     });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.log(`Failed to fetch ${url}: ${response.status}`);
-      return '';
-    }
+    if (!response.ok) throw new Error(`USCIS returned ${response.status}`);
 
-    await response.arrayBuffer();
-    
-    // Para simplificar, vamos assumir que temos uma biblioteca para extrair texto de PDF
-    // Em produção, você usaria uma biblioteca como pdf-parse ou similar
-    // Por ora, vamos simular a extração de texto
-    const text = `PDF content from ${url} - This would contain the actual USCIS decision document text`;
-    
-    return text;
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('pdf')) throw new Error('Remote file is not a PDF');
+
+    const contentLength = Number(response.headers.get('content-length')) || 0;
+    if (contentLength > 15 * 1024 * 1024) throw new Error('PDF is too large');
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > 15 * 1024 * 1024) throw new Error('PDF is too large');
+
+    const pdfParse = (await import('pdf-parse')).default;
+    const parsed = await pdfParse(buffer, { max: 80 });
+    return parsed.text.trim();
   } catch (error) {
     console.error(`Error fetching PDF from ${url}:`, error);
     return '';
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -103,7 +108,7 @@ If No, just respond with: NIW_CASE: No
 `;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
@@ -189,11 +194,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const user = await requireAuth(req, res);
+  if (!user) return;
+  if (!await enforceRateLimit(res, {
+    scope: 'eb2-niw-analysis', key: user.uid, limit: 2, windowSeconds: 3600,
+  })) return;
+
   try {
     const { userCase, startLine, endLine } = req.body;
 
-    if (!userCase || !startLine || !endLine) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const validCase = userCase && ['prong1', 'prong2', 'prong3'].every((key) =>
+      typeof userCase[key] === 'string' && userCase[key].trim().length >= 20 && userCase[key].length <= 6000
+    );
+    const validRange = Number.isInteger(startLine) && Number.isInteger(endLine) &&
+      startLine >= 1 && endLine >= startLine && endLine - startLine < 10;
+    if (!validCase || !validRange) {
+      return res.status(400).json({ error: 'Invalid analysis request' });
     }
 
     // Read Master_file from server
@@ -213,6 +229,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const pdfLinks = allLinks.slice(startLine - 1, endLine);
     const totalCases = pdfLinks.length;
+    if (!totalCases) return res.status(400).json({ error: 'No cases found in requested range' });
+
+    const creditResult = await spendUserCredits(user.uid, 'eb2niw');
+    if (!creditResult.success) {
+      return res.status(402).json({ error: creditResult.error, currentBalance: creditResult.newBalance });
+    }
 
     // Set up streaming response
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');

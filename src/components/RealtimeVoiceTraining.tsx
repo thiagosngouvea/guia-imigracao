@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FeedbackSection } from '../pages/api/realtime-feedback';
 import { saveFeedbackToSession } from '../lib/training-history';
+import { authenticatedFetch } from '../lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -253,7 +254,6 @@ export function RealtimeVoiceTraining({
   // guard the second mount creates a second RTCPeerConnection causing duplicates.
   const hasConnectedRef = useRef(false);
   // One-shot flag: response.create should fire only once per session
-  const sessionReadyRef = useRef(false);
   // Flag set if the server rejects our session.update
   const sessionErrorRef = useRef(false);
 
@@ -497,7 +497,7 @@ export function RealtimeVoiceTraining({
       if (pcRef.current !== activePc) return;
 
       // 6. Exchange SDP with our backend (which configures and exchanges with OpenAI)
-      const tokenRes = await fetch('/api/realtime-session', {
+      const tokenRes = await authenticatedFetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language, scenario, sdp: offer.sdp }),
@@ -538,7 +538,7 @@ export function RealtimeVoiceTraining({
 
     setFeedbackLoading(true);
     try {
-      const res = await fetch('/api/realtime-feedback', {
+      const res = await authenticatedFetch('/api/realtime-feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -561,7 +561,7 @@ export function RealtimeVoiceTraining({
     } finally {
       setFeedbackLoading(false);
     }
-  }, [cleanup, scenario, language]);
+  }, [cleanup, scenario, language, sessionId]);
 
   // Update disconnectRef every render so the data channel handler always has
   // the latest version without a useEffect dependency cycle.
@@ -861,4 +861,3 @@ export function RealtimeVoiceTraining({
     </>
   );
 }
-

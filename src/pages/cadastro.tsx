@@ -19,12 +19,12 @@ const GoogleIcon = () => (
 
 export default function Cadastro() {
   const router = useRouter();
-  const { plan, name: queryName, email: queryEmail } = router.query as {
-    plan?: 'monthly' | 'yearly';
+  const { from, name: queryName, email: queryEmail } = router.query as {
+    from?: string;
     name?: string;
     email?: string;
   };
-  const fromQuiz = !!plan;
+  const fromQuiz = from === 'quiz';
 
   const [formData, setFormData] = useState({
     name: queryName || '',
@@ -35,26 +35,6 @@ export default function Cadastro() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  async function startCheckout(userId: string, planType: 'monthly' | 'yearly') {
-    const { getStripe } = await import('../lib/stripe');
-    const response = await fetch('/api/stripe/create-checkout-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        planType,
-        userId,
-        email: formData.email || queryEmail,
-        name: formData.name || queryName,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Falha ao criar sessão de pagamento');
-    }
-    const stripe = await getStripe();
-    if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,12 +48,8 @@ export default function Cadastro() {
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Senhas não coincidem';
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsLoading(false); return; }
     try {
-      const user = await signUp(formData.email, formData.password, formData.name);
-      if (fromQuiz && plan && user?.uid) {
-        await startCheckout(user.uid, plan);
-        return;
-      }
-      router.push('/questionario');
+      await signUp(formData.email, formData.password, formData.name);
+      router.push(fromQuiz ? '/comprar-creditos' : '/questionario');
     } catch (error: any) {
       setErrors({ general: error.message });
     } finally {
@@ -85,12 +61,8 @@ export default function Cadastro() {
     setIsGoogleLoading(true);
     setErrors({});
     try {
-      const user = await signInWithGoogle();
-      if (fromQuiz && plan && user?.uid) {
-        await startCheckout(user.uid, plan);
-        return;
-      }
-      router.push('/questionario');
+      await signInWithGoogle();
+      router.push(fromQuiz ? '/comprar-creditos' : '/questionario');
     } catch (error: any) {
       setErrors({ general: error.message });
     } finally {
@@ -151,13 +123,13 @@ export default function Cadastro() {
             <div className="mb-8">
               {fromQuiz && (
                 <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-                  ✨ Plano {plan === 'yearly' ? 'Anual' : 'Mensal'} selecionado
+                  Cadastro iniciado pelo teste gratuito
                 </div>
               )}
               <h1 className="text-2xl font-bold text-slate-900 mb-1">Criar conta gratuita</h1>
               <p className="text-slate-500 text-sm">
                 Já tem uma conta?{' '}
-                <Link href={fromQuiz ? `/login?plan=${plan}` : '/login'} className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                <Link href={fromQuiz ? '/login?next=/comprar-creditos' : '/login'} className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
                   Faça login
                 </Link>
               </p>

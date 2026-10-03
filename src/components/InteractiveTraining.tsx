@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './ui/Button';
+import { authenticatedFetch } from '../lib/api-client';
 
 interface Message {
   id: string;
@@ -145,7 +146,7 @@ export function InteractiveTraining({
   // Enviar mensagem via HTTP
   const sendHttpMessage = async (message: string) => {
     try {
-      const response = await fetch('/api/chat', {
+      const response = await authenticatedFetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -197,7 +198,7 @@ export function InteractiveTraining({
   // Síntese de voz
   const synthesizeSpeech = async (text: string) => {
     try {
-      const response = await fetch('/api/text-to-speech', {
+      const response = await authenticatedFetch('/api/text-to-speech', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +268,7 @@ export function InteractiveTraining({
       try {
         const base64Audio = (reader.result as string).split(',')[1];
         
-        const transcriptionResponse = await fetch('/api/transcribe', {
+        const transcriptionResponse = await authenticatedFetch('/api/transcribe', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

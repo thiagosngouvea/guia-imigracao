@@ -1,19 +1,13 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-});
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getOpenAI } from '../../lib/server/openai';
+import { enforceRateLimit, getClientIp } from '../../lib/server/rate-limit';
 
 export interface FreeQuizData {
-  // Dados pessoais
   fullName: string;
   email: string;
   whatsapp: string;
   age: number;
-  timeframe: string; // previsão de imigração
-
-  // Questionário
+  timeframe: string;
   education: string;
   fieldOfStudy: string;
   occupation: string;
@@ -36,86 +30,73 @@ export interface FreeVisaResult {
   topVisaReason: string;
 }
 
+function isValidQuiz(data: FreeQuizData): boolean {
+  return Boolean(
+    data?.fullName?.trim() &&
+    data?.education?.trim() &&
+    data?.occupation?.trim() &&
+    data?.immigrationGoal?.trim() &&
+    Number.isFinite(data.age) && data.age >= 18 && data.age <= 100 &&
+    Number.isFinite(data.yearsOfExperience) && data.yearsOfExperience >= 0
+  );
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const data: FreeQuizData = req.body;
+  if (!await enforceRateLimit(res, {
+    scope: 'analyze-free', key: getClientIp(req), limit: 5, windowSeconds: 3600,
+  })) return;
 
-  const prompt = `Você é um especialista sênior em imigração americana. Analise o perfil abaixo e determine os 3 vistos americanos mais adequados, com porcentagem de compatibilidade.
+  const data = req.body as FreeQuizData;
+  if (!isValidQuiz(data)) return res.status(400).json({ error: 'Invalid questionnaire data' });
+
+  const prompt = `Você é um especialista em imigração americana. Analise o perfil e indique os três vistos mais compatíveis. O resultado é apenas educacional e não substitui aconselhamento jurídico.
 
 PERFIL:
-- Nome: ${data.fullName}
-- Idade: ${data.age} anos
+- Idade: ${data.age}
 - Educação: ${data.education} em ${data.fieldOfStudy}
-- Profissão: ${data.occupation} (${data.yearsOfExperience} anos de experiência)
+- Profissão: ${data.occupation} (${data.yearsOfExperience} anos)
 - Inglês: ${data.englishLevel}
 - Objetivo: ${data.immigrationGoal}
-- Prazo pretendido: ${data.timeframe}
-- Economia disponível: ${data.savings}
-- Tem oferta de emprego nos EUA: ${data.hasJobOffer ? 'Sim' : 'Não'}
-- Tem família nos EUA: ${data.hasFamily ? 'Sim' : 'Não'}
+- Prazo: ${data.timeframe}
+- Recursos: ${data.savings}
+- Oferta de emprego nos EUA: ${data.hasJobOffer ? 'Sim' : 'Não'}
+- Família nos EUA: ${data.hasFamily ? 'Sim' : 'Não'}
 
-TIPOS DE VISTO AMERICANO (escolha apenas os mais relevantes):
-- H-1B: Trabalhador especializado com oferta de emprego
-- O-1: Habilidades extraordinárias (artistas, cientistas, atletas)
-- EB-2 NIW: Green card para profissionais com pós-grad ou interesse nacional
-- EB-1: Green card para habilidades extraordinárias
-- EB-5: Green card por investimento
-- F-1: Estudante
-- L-1: Transferência intraempresarial
-- E-2: Investidor com tratado comercial
-- B1/B2: Turismo/negócios (não-imigrante)
-
-Responda SOMENTE no seguinte formato JSON (sem markdown, sem explicações fora do JSON):
-{
-  "topVisa": "NOME_DO_VISTO",
-  "topVisaScore": NUMERO_DE_0_A_100,
-  "secondVisa": "NOME_DO_VISTO",
-  "secondVisaScore": NUMERO_DE_0_A_100,
-  "thirdVisa": "NOME_DO_VISTO",
-  "thirdVisaScore": NUMERO_DE_0_A_100,
-  "profileSummary": "Resumo do perfil em 1 frase curta em português",
-  "topVisaReason": "Motivo principal pelo qual o primeiro visto é o mais indicado, em 1 frase curta em português"
-}`;
+Considere H-1B, O-1, EB-2 NIW, EB-1, EB-5, F-1, L-1, E-2 e B1/B2.
+Responda somente em JSON válido:
+{"topVisa":"","topVisaScore":0,"secondVisa":"","secondVisaScore":0,"thirdVisa":"","thirdVisaScore":0,"profileSummary":"","topVisaReason":""}`;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 400,
       temperature: 0.3,
+      response_format: { type: 'json_object' },
     });
+    const raw = completion.choices[0]?.message?.content;
+    if (!raw) throw new Error('Empty AI response');
 
-    const raw = completion.choices[0]?.message?.content || '';
-
-    // Parse JSON from response
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Invalid AI response format');
+    const result = JSON.parse(raw) as FreeVisaResult;
+    if (!result.topVisa || !result.secondVisa || !result.thirdVisa ||
+        !Number.isFinite(result.topVisaScore) ||
+        !Number.isFinite(result.secondVisaScore) ||
+        !Number.isFinite(result.thirdVisaScore)) {
+      throw new Error('Incomplete AI response');
     }
 
-    const result: FreeVisaResult = JSON.parse(jsonMatch[0]);
-
-    // Clamp scores between 10 and 95
     result.topVisaScore = Math.min(95, Math.max(10, result.topVisaScore));
     result.secondVisaScore = Math.min(85, Math.max(10, result.secondVisaScore));
     result.thirdVisaScore = Math.min(75, Math.max(10, result.thirdVisaScore));
-
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error in analyze-free:', error);
-    // Fallback deterministic result  
-    return res.status(200).json({
-      topVisa: 'EB-2 NIW',
-      topVisaScore: 68,
-      secondVisa: 'H-1B',
-      secondVisaScore: 52,
-      thirdVisa: 'F-1',
-      thirdVisaScore: 44,
-      profileSummary: 'Perfil com boa formação acadêmica e experiência profissional.',
-      topVisaReason: 'Seu nível de educação e experiência se encaixam bem nos critérios do EB-2 NIW.',
-    } as FreeVisaResult);
+    return res.status(502).json({
+      error: 'Não foi possível concluir a análise agora. Tente novamente em alguns minutos.',
+    });
   }
 }
+
+export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };

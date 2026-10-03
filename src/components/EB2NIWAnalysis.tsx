@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Button } from './ui/Button';
 import { useCredits } from '../hooks/useCredits';
 import { CreditConfirmModal } from './CreditConfirmModal';
+import { authenticatedFetch } from '../lib/api-client';
 
 interface CaseAnalysis {
   pdfLink: string;
@@ -35,7 +36,7 @@ interface EB2NIWAnalysisProps {
 
 export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
   const router = useRouter();
-  const { credits, isAdmin, canAfford, spend, getCost } = useCredits();
+  const { credits, isAdmin, canAfford, getCost } = useCredits();
   const [userCase, setUserCase] = useState<UserCase>({
     prong1: '',
     prong2: '',
@@ -110,7 +111,7 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
 
     try {
       // Fazer análise via API (arquivo será lido no servidor)
-      const response = await fetch('/api/eb2-niw-analysis', {
+      const response = await authenticatedFetch('/api/eb2-niw-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +124,9 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Erro na análise');
+        const data = await response.json().catch(() => null);
+        if (response.status === 402) router.push('/comprar-creditos');
+        throw new Error(data?.error || 'Erro na análise');
       }
 
       // Stream de resultados
@@ -170,7 +173,7 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
 
     } catch (error) {
       console.error('Erro na análise:', error);
-      setError('Erro durante a análise. Tente novamente.');
+      setError(error instanceof Error ? error.message : 'Erro durante a análise. Tente novamente.');
       setProgress(prev => ({ ...prev, isRunning: false }));
     } finally {
       setIsAnalyzing(false);
@@ -195,16 +198,11 @@ export function EB2NIWAnalysis({ onAnalysisComplete }: EB2NIWAnalysisProps) {
     setConsumingCredits(true);
     setError(null);
     try {
-      const success = await spend('eb2niw');
-      if (!success) {
-        setError('Não foi possível descontar os créditos. Tente novamente.');
-        return;
-      }
       setShowSpendModal(false);
       await runAnalysis();
     } catch (err) {
-      console.error('Erro ao consumir créditos no EB2-NIW:', err);
-      setError('Erro ao processar créditos para análise.');
+      console.error('Erro ao iniciar análise EB2-NIW:', err);
+      setError('Erro ao iniciar a análise.');
     } finally {
       setConsumingCredits(false);
     }

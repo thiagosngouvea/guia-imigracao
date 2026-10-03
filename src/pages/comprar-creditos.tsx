@@ -1,20 +1,17 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import { Layout } from '../components/layout/Layout';
 import { useAuth } from '../hooks/useAuth';
 import { useCredits } from '../hooks/useCredits';
 import { CREDIT_PACKAGES, FEATURE_COSTS, formatPrice, getStripe, CreditPackageId } from '../lib/stripe';
+import { authenticatedFetch } from '../lib/api-client';
 import {
   HiCreditCard,
   HiSparkles,
   HiShieldCheck,
-  HiCheckCircle,
 } from 'react-icons/hi';
 import {
-  HiArrowRight,
   HiBolt,
-  HiRocketLaunch,
   HiAcademicCap,
   HiDocumentText,
   HiMicrophone,
@@ -43,7 +40,7 @@ export default function ComprarCreditos() {
   const router = useRouter();
   const [loadingPackage, setLoadingPackage] = useState<string | null>(null);
 
-  const { success, canceled, package: purchasedPkg } = router.query;
+  const { success, canceled } = router.query;
 
   const handleBuyPackage = async (packageId: CreditPackageId) => {
     if (!user) {
@@ -53,15 +50,10 @@ export default function ComprarCreditos() {
 
     setLoadingPackage(packageId);
     try {
-      const response = await fetch('/api/stripe/create-checkout-session', {
+      const response = await authenticatedFetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          packageId,
-          userId: user.uid,
-          email: user.email,
-          name: user.displayName,
-        }),
+        body: JSON.stringify({ packageId }),
       });
 
       const data = await response.json();

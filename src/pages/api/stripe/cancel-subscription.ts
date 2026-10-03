@@ -1,54 +1,45 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import Stripe from 'stripe';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-});
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { FieldValue } from 'firebase-admin/firestore';
+import { requireAuth } from '../../../lib/server/auth';
+import { adminDb } from '../../../lib/server/firebase-admin';
+import { enforceRateLimit } from '../../../lib/server/rate-limit';
+import { getStripeServer } from '../../../lib/server/stripe';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+  if (!await enforceRateLimit(res, {
+    scope: 'stripe-cancel', key: user.uid, limit: 3, windowSeconds: 300,
+  })) return;
 
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'Missing userId' });
-    }
-
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userData = userDoc.data();
-    const subscriptionId = userData.subscriptionId;
-
-    if (!subscriptionId) {
+    const userRef = adminDb.collection('users').doc(user.uid);
+    const snapshot = await userRef.get();
+    const subscriptionId = snapshot.data()?.subscriptionId;
+    if (!snapshot.exists || typeof subscriptionId !== 'string') {
       return res.status(400).json({ error: 'No active subscription found' });
     }
 
-    // Cancel at end of current period — user keeps access until then
-    const subscription = await stripe.subscriptions.update(subscriptionId, {
+    const subscription = await getStripeServer().subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
     });
-
-    // Update Firestore to reflect cancellation intent
-    await updateDoc(doc(db, 'users', userId), {
+    await userRef.update({
       subscriptionStatus: 'canceled',
-      canceledAt: new Date().toISOString(),
+      canceledAt: FieldValue.serverTimestamp(),
     });
 
-    res.status(200).json({
+    const currentPeriodEnd = (subscription as unknown as { current_period_end?: number }).current_period_end;
+    return res.status(200).json({
       success: true,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
+      currentPeriodEnd: currentPeriodEnd
+        ? new Date(currentPeriodEnd * 1000).toISOString()
+        : null,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error canceling subscription:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    return res.status(500).json({ error: 'Could not cancel subscription' });
   }
 }

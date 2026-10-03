@@ -33,6 +33,48 @@ service cloud.firestore {
       );
     }
 
+    // Billing and authorization fields are server-managed.
+    function hasSafeInitialAccountState() {
+      return request.resource.data.get('credits', 0) == 0 &&
+        request.resource.data.get('totalCreditsEarned', 0) == 0 &&
+        request.resource.data.get('isPremium', false) == false &&
+        request.resource.data.get('isAdmin', false) == false &&
+        request.resource.data.get('role', 'user') == 'user' &&
+        !request.resource.data.keys().hasAny([
+          'stripeCustomerId',
+          'subscriptionId',
+          'subscriptionStatus',
+          'subscriptionEndDate',
+          'planType',
+          'planTier',
+          'lastPurchaseAt',
+          'lastPackageId'
+        ]);
+    }
+
+    function onlyUpdatesEditableProfileFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'name',
+        'displayName',
+        'fullName',
+        'photoURL',
+        'lastLoginAt',
+        'updatedAt',
+        'hasCompletedQuestionnaire',
+        'age',
+        'nationality',
+        'occupation',
+        'immigrationGoal',
+        'questionnaireCompletedAt',
+        'selectedVisaPath',
+        'recommendedVisa',
+        'selectedVisa',
+        'completedQuiz',
+        'quizAnswers',
+        'quizScores'
+      ]);
+    }
+
     function isLeadOwnerByEmail() {
       return isAuthenticated() &&
         resource != null &&
@@ -53,7 +95,49 @@ service cloud.firestore {
         request.resource.data.whatsapp == resource.data.whatsapp &&
         request.resource.data.age == resource.data.age &&
         request.resource.data.timeframe == resource.data.timeframe &&
-        request.resource.data.createdAt == resource.data.createdAt;
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'education',
+          'fieldOfStudy',
+          'occupation',
+          'yearsOfExperience',
+          'englishLevel',
+          'immigrationGoal',
+          'savings',
+          'hasJobOffer',
+          'hasFamily',
+          'topVisa',
+          'topVisaScore',
+          'secondVisa',
+          'secondVisaScore',
+          'thirdVisa',
+          'thirdVisaScore',
+          'profileSummary',
+          'status',
+          'completedAt'
+        ]);
+    }
+
+    function isValidPublicLead() {
+      return request.resource.data.keys().hasOnly([
+          'fullName', 'email', 'whatsapp', 'age', 'timeframe',
+          'source', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() > 0 &&
+        request.resource.data.fullName.size() <= 150 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 254 &&
+        request.resource.data.whatsapp is string &&
+        request.resource.data.whatsapp.size() <= 30 &&
+        request.resource.data.age is int &&
+        request.resource.data.age >= 16 &&
+        request.resource.data.age <= 100 &&
+        request.resource.data.timeframe is string &&
+        request.resource.data.timeframe.size() <= 100 &&
+        request.resource.data.source == 'teste-gratuito' &&
+        request.resource.data.status == 'lead' &&
+        request.resource.data.createdAt == request.time;
     }
 
     // ============================================================
@@ -62,16 +146,19 @@ service cloud.firestore {
     // ============================================================
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == request.auth.token.email &&
+        hasSafeInitialAccountState();
+      allow update: if (isOwner(userId) && onlyUpdatesEditableProfileFields()) || isAdmin();
       allow delete: if isAdmin();
 
       // Subcoleção de histórico de créditos
       // Leitura: o próprio usuário ou admin
-      // Escrita: o próprio usuário (via runTransaction no credits.ts) ou admin
+      // Escrita: somente Admin SDK/backend ou admin autenticado
       match /creditHistory/{txId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) || isAdmin();
+        allow create: if isAdmin();
         allow update: if false; // transacões são imutáveis
         allow delete: if isAdmin();
       }
@@ -128,7 +215,8 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() &&
         resource != null &&
-        resource.data.userId == request.auth.uid;
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() &&
         resource != null &&
         resource.data.userId == request.auth.uid || isAdmin();
@@ -194,7 +282,8 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() &&
         resource != null &&
-        resource.data.userId == request.auth.uid;
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() &&
         resource != null &&
         resource.data.userId == request.auth.uid || isAdmin();
@@ -206,7 +295,7 @@ service cloud.firestore {
     // Atualização pública permitida apenas para concluir quiz do próprio lead
     // ============================================================
     match /leads/{leadId} {
-      allow create: if true; // público — para capturar leads sem conta
+      allow create: if isValidPublicLead();
       allow read: if isLeadOwnerByEmail() || isAdmin();
       allow update: if isLeadOwnerByEmail() || isAdmin() || isPublicQuizCompletionUpdate();
       allow delete: if isAdmin();

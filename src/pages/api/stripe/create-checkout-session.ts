@@ -1,88 +1,67 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import Stripe from 'stripe';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { CREDIT_PACKAGES, CreditPackageId } from '../../../lib/stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-});
+import { requireAuth } from '../../../lib/server/auth';
+import { adminDb } from '../../../lib/server/firebase-admin';
+import { enforceRateLimit } from '../../../lib/server/rate-limit';
+import { getPublicBaseUrl, getStripeServer } from '../../../lib/server/stripe';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  if (!await enforceRateLimit(res, {
+    scope: 'stripe-checkout',
+    key: user.uid,
+    limit: 5,
+    windowSeconds: 60,
+  })) return;
 
   try {
-    const { packageId, userId, email, name } = req.body as {
-      packageId: CreditPackageId;
-      userId: string;
-      email?: string;
-      name?: string;
-    };
+    const { packageId } = req.body as { packageId?: CreditPackageId };
+    const pkg = packageId ? CREDIT_PACKAGES[packageId] : undefined;
+    if (!pkg) return res.status(400).json({ error: 'Invalid package ID' });
+    if (!pkg.stripePriceId) return res.status(503).json({ error: 'Package is not configured' });
+    const validatedPackageId = packageId as CreditPackageId;
 
-    if (!packageId || !userId) {
-      return res.status(400).json({ error: 'Missing required parameters' });
-    }
+    const stripe = getStripeServer();
+    const userRef = adminDb.collection('users').doc(user.uid);
+    const userSnapshot = await userRef.get();
+    if (!userSnapshot.exists) return res.status(404).json({ error: 'User not found' });
 
-    const pkg = CREDIT_PACKAGES[packageId];
-    if (!pkg) {
-      return res.status(400).json({ error: 'Invalid package ID' });
-    }
-
-    if (!pkg.stripePriceId) {
-      return res.status(500).json({
-        error: 'Price ID not configured. Check NEXT_PUBLIC_STRIPE_CREDITS_*_PRICE_ID env vars.',
-      });
-    }
-
-    // Busca ou cria o customer no Stripe pelo email
-    let customerId: string | undefined;
-
-    if (email) {
-      const existing = await stripe.customers.list({ email, limit: 1 });
-      if (existing.data.length > 0) {
-        customerId = existing.data[0].id;
-        // Garante que o metadata tem o UID correto
-        if (!existing.data[0].metadata?.firebaseUid) {
-          await stripe.customers.update(customerId, {
-            metadata: { firebaseUid: userId },
-          });
-        }
-      }
-    }
+    const profile = userSnapshot.data() || {};
+    let customerId = typeof profile.stripeCustomerId === 'string'
+      ? profile.stripeCustomerId
+      : undefined;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: email || undefined,
-        name: name || undefined,
-        metadata: { firebaseUid: userId },
+        email: user.email,
+        name: profile.displayName || profile.name || undefined,
+        metadata: { firebaseUid: user.uid },
       });
       customerId = customer.id;
+      await userRef.update({ stripeCustomerId: customerId });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:4000';
-
-    // Cria sessão de pagamento único (não subscription)
+    const baseUrl = getPublicBaseUrl();
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [{ price: pkg.stripePriceId, quantity: 1 }],
-      mode: 'payment',            // ← pagamento único, não recorrente
+      mode: 'payment',
       locale: 'pt-BR',
-      success_url: `${baseUrl}/comprar-creditos?success=true&package=${packageId}`,
+      success_url: `${baseUrl}/comprar-creditos?success=true&package=${validatedPackageId}`,
       cancel_url: `${baseUrl}/comprar-creditos?canceled=true`,
-      metadata: {
-        userId,
-        packageId,
-        creditsAmount: String(pkg.totalCredits),
-        bonusCredits: String(pkg.bonusCredits),
-      },
+      metadata: { userId: user.uid, packageId: validatedPackageId },
+    }, {
+      idempotencyKey: `checkout:${user.uid}:${validatedPackageId}:${Math.floor(Date.now() / 30000)}`,
     });
 
     return res.status(200).json({ sessionId: session.id });
-  } catch (error: any) {
-    console.error('Error creating checkout session:', error?.message || error);
-    return res.status(500).json({
-      error: error?.message || 'Internal server error',
-    });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    return res.status(500).json({ error: 'Could not create checkout session' });
   }
 }
