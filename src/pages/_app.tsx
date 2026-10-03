@@ -1,4 +1,5 @@
 import "@/styles/globals.css";
+import "@/styles/guide.css";
 import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
 import { AuthProvider } from "../hooks/useAuth";

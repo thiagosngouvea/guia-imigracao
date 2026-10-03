@@ -13,7 +13,7 @@ const PrivacyPolicy: React.FC = () => {
             
             <div className="space-y-8">
               <p className="text-gray-600 mb-6">
-                <strong>Última atualização:</strong> {new Date().toLocaleDateString('pt-BR')}
+                <strong>Última atualização:</strong> 03/10/2026
               </p>
 
               <div className="space-y-6">
@@ -23,7 +23,7 @@ const PrivacyPolicy: React.FC = () => {
                 <p className="text-gray-700">
                   Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos 
                   suas informações pessoais quando você utiliza nosso sistema de orientação para imigração 
-                  e processos de visto americano.
+                  para diferentes países e processos de visto americano.
                 </p>
                 <p className="text-gray-700">
                   Ao utilizar nossos serviços, você concorda com as práticas descritas nesta política.
@@ -45,6 +45,8 @@ const PrivacyPolicy: React.FC = () => {
                     <li>Informações de contato</li>
                     <li>Dados relacionados ao processo de imigração</li>
                     <li>Informações profissionais e educacionais</li>
+                    <li>Preferências de destino, idiomas, recursos disponíveis, objetivos e prazo informado no diagnóstico</li>
+                    <li>Roteiros escolhidos e progresso nas etapas</li>
                     <li>Documentos e formulários relacionados ao visto</li>
                   </ul>
                 </div>

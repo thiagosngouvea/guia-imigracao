@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:immigration-plans": "node --test tests/immigration-plans.test.cjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^7.9.0",

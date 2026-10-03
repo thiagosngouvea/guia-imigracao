@@ -26,7 +26,8 @@ export default function Login() {
   const router = useRouter();
 
   // Detecta se o usuário está logando para comprar créditos
-  const nextUrl = router.query.next as string | undefined;
+  const nextUrl = (router.query.next || router.query.redirect) as string | undefined;
+  const safeNextUrl = nextUrl?.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/dashboard';
   const isBuyingCredits = nextUrl === '/comprar-creditos' || router.query.buy === 'credits';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +40,7 @@ export default function Login() {
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsLoading(false); return; }
     try {
       await signIn(formData.email, formData.password);
-      router.push('/dashboard');
+      router.push(safeNextUrl);
     } catch (error: any) {
       setErrors({ general: 'Email ou senha incorretos. Tente novamente.' });
     } finally {
@@ -52,7 +53,7 @@ export default function Login() {
     setErrors({});
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(safeNextUrl);
     } catch (error: any) {
       setErrors({ general: error.message });
     } finally {
@@ -198,7 +199,7 @@ export default function Login() {
               <p className="text-slate-500 text-sm">
                 Não tem uma conta?{' '}
                 <Link
-                  href={isBuyingCredits ? `/cadastro?next=${encodeURIComponent('/comprar-creditos')}` : '/cadastro'}
+                  href={nextUrl && safeNextUrl !== '/dashboard' ? `/cadastro?next=${encodeURIComponent(safeNextUrl)}` : '/cadastro'}
                   className="text-blue-600 font-medium hover:text-blue-700 transition-colors"
                 >
                   Cadastre-se grátis

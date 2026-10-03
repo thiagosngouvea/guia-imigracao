@@ -120,6 +120,33 @@ export default function Dashboard() {
 
   const quickActions: QuickAction[] = [
     {
+      id: 'destinations',
+      title: 'Explorar destinos',
+      description: 'Compare sete países e caminhos de residência',
+      icon: <HiGlobeAmericas className="w-5 h-5" />,
+      href: '/destinos',
+      color: 'blue',
+      completed: false,
+    },
+    {
+      id: 'global-diagnostic',
+      title: 'Diagnóstico global',
+      description: 'Descubra possibilidades conforme seu perfil',
+      icon: <HiQuestionMarkCircle className="w-5 h-5" />,
+      href: '/diagnostico',
+      color: 'green',
+      completed: false,
+    },
+    {
+      id: 'immigration-plans',
+      title: 'Meus roteiros',
+      description: 'Acompanhe etapas do seu plano de imigração',
+      icon: <HiMap className="w-5 h-5" />,
+      href: '/meu-plano',
+      color: 'purple',
+      completed: false,
+    },
+    {
       id: 'visa-path',
       title: 'Escolher Trilha',
       description: 'Veja os vistos e escolha sua trilha de imigração',
@@ -291,7 +318,7 @@ export default function Dashboard() {
                   Olá, {displayName.split(' ')[0]} 👋
                 </h1>
                 <p className="text-slate-500 mt-1.5 text-sm">
-                  Aqui está um resumo da sua jornada para os Estados Unidos.
+                  Explore destinos, acompanhe seus roteiros e continue suas ferramentas dos Estados Unidos.
                 </p>
               </div>
               <div className="hidden sm:flex items-center gap-3">
@@ -337,8 +364,8 @@ export default function Dashboard() {
             <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Progresso geral</p>
-                  <p className="text-xs text-slate-500">Complete as etapas para avançar sua jornada</p>
+                  <p className="text-sm font-semibold text-slate-800">Progresso nas ferramentas dos EUA</p>
+                  <p className="text-xs text-slate-500">Seu roteiro global tem acompanhamento separado em Meus roteiros.</p>
                 </div>
                 <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   {progress}%

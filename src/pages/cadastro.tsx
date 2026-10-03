@@ -25,6 +25,7 @@ export default function Cadastro() {
     email?: string;
   };
   const fromQuiz = from === 'quiz';
+  const nextUrl = typeof router.query.next === 'string' && router.query.next.startsWith('/') && !router.query.next.startsWith('//') ? router.query.next : null;
 
   const [formData, setFormData] = useState({
     name: queryName || '',
@@ -49,7 +50,7 @@ export default function Cadastro() {
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsLoading(false); return; }
     try {
       await signUp(formData.email, formData.password, formData.name);
-      router.push(fromQuiz ? '/comprar-creditos' : '/questionario');
+      router.push(nextUrl || (fromQuiz ? '/comprar-creditos' : '/questionario'));
     } catch (error: any) {
       setErrors({ general: error.message });
     } finally {
@@ -62,7 +63,7 @@ export default function Cadastro() {
     setErrors({});
     try {
       await signInWithGoogle();
-      router.push(fromQuiz ? '/comprar-creditos' : '/questionario');
+      router.push(nextUrl || (fromQuiz ? '/comprar-creditos' : '/questionario'));
     } catch (error: any) {
       setErrors({ general: error.message });
     } finally {
@@ -129,7 +130,7 @@ export default function Cadastro() {
               <h1 className="text-2xl font-bold text-slate-900 mb-1">Criar conta gratuita</h1>
               <p className="text-slate-500 text-sm">
                 Já tem uma conta?{' '}
-                <Link href={fromQuiz ? '/login?next=/comprar-creditos' : '/login'} className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                <Link href={nextUrl ? `/login?next=${encodeURIComponent(nextUrl)}` : fromQuiz ? '/login?next=/comprar-creditos' : '/login'} className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
                   Faça login
                 </Link>
               </p>
